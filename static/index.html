@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>IIM Bodh Gaya - CampusRide PWA</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0f172a">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-20">
+
+  <!-- Navigation Bar -->
+  <nav class="sticky top-0 z-50 glass-card mx-2 mt-2 px-4 py-3 flex items-center justify-between border-b border-slate-700/50">
+    <div class="flex items-center space-x-2">
+      <div class="w-10 h-10 rounded-xl bg-blue-600/30 flex items-center justify-center text-blue-400 border border-blue-500/30">
+        <i data-lucide="bike" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h1 class="text-base font-bold tracking-tight text-white leading-tight">CampusRide</h1>
+        <p class="text-xs text-blue-400 font-medium">IIM Bodh Gaya</p>
+      </div>
+    </div>
+    <div id="auth-header-action">
+      <button onclick="openAuthModal()" class="px-3 py-1.5 bg-blue-600/30 text-blue-400 hover:bg-blue-600/50 rounded-lg text-xs font-semibold border border-blue-500/30 flex items-center gap-1.5 transition">
+        <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
+        <span>Login</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="max-w-md mx-auto px-3 pt-4 space-y-4">
+
+    <!-- Active Trip Banner (Shown when user has active trip) -->
+    <div id="active-trip-card" class="hidden glass-card p-4 border-emerald-500/40 bg-emerald-950/20">
+      <div class="flex items-center justify-between mb-2">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold animate-pulse">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> ACTIVE RIDE
+        </span>
+        <span id="trip-stopwatch" class="text-xl font-extrabold text-emerald-400 tracking-wider font-mono">00:00:00</span>
+      </div>
+      <div class="text-xs text-slate-300 space-y-1 mb-3">
+        <p><span class="text-slate-400">Cycle Code:</span> <strong id="active-cycle-code" class="text-white">BG-CYCLE-001</strong></p>
+        <p><span class="text-slate-400">Lock Battery:</span> <strong id="active-battery" class="text-emerald-400">95%</strong> (BLE Online)</p>
+      </div>
+      <button onclick="openEndTripModal()" class="w-full btn-success text-sm py-2.5 flex items-center justify-center gap-2">
+        <i data-lucide="check-circle" class="w-4 h-4"></i>
+        <span>End Ride & Verify Parking</span>
+      </button>
+    </div>
+
+    <!-- Student Trust Score & Campus Status Card -->
+    <div class="glass-card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <p class="text-xs text-slate-400 font-medium">Student Trust Score</p>
+          <div class="flex items-baseline gap-1">
+            <span id="user-trust-score" class="text-2xl font-black text-blue-400">100.0</span>
+            <span class="text-xs text-slate-400">/ 100</span>
+          </div>
+        </div>
+        <div class="text-right">
+          <span class="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            @iimbg.ac.in Verified
+          </span>
+        </div>
+      </div>
+      <!-- Progress Bar -->
+      <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+        <div id="trust-bar" class="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full transition-all duration-500" style="width: 100%;"></div>
+      </div>
+    </div>
+
+    <!-- Interactive Campus Hubs Map -->
+    <div class="glass-card p-3">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <i data-lucide="map-pin" class="w-4 h-4 text-blue-400"></i>
+          <span>Campus Hubs Map</span>
+        </h2>
+        <span class="text-xs text-slate-400">10 Hubs Centered at IIMBG</span>
+      </div>
+      <div id="map" class="w-full h-56 rounded-lg border border-slate-700/50"></div>
+    </div>
+
+    <!-- Scan QR Code & Unlock Trigger Card -->
+    <div class="glass-card p-4 text-center">
+      <div class="w-14 h-14 mx-auto rounded-2xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30 mb-3">
+        <i data-lucide="qr-code" class="w-8 h-8"></i>
+      </div>
+      <h3 class="text-base font-bold text-white mb-1">Ready to Ride?</h3>
+      <p class="text-xs text-slate-400 mb-4">Scan cycle QR code or select cycle code below to unlock instantly.</p>
+
+      <div class="space-y-2">
+        <button onclick="openQRModal()" class="w-full btn-primary text-sm py-3 flex items-center justify-center gap-2">
+          <i data-lucide="camera" class="w-4 h-4"></i>
+          <span>Scan Cycle QR Code</span>
+        </button>
+
+        <!-- Quick Cycle Selector for offline testing -->
+        <div class="pt-2">
+          <label class="text-xs text-slate-400 block mb-1">Quick Select Demo Cycle:</label>
+          <select id="quick-cycle-select" onchange="onQuickSelectCycle(this.value)" class="w-full glass-input text-xs">
+            <option value="">-- Choose Cycle QR --</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Modals -->
+
+  <!-- Auth Modal -->
+  <div id="auth-modal" class="fixed inset-0 z-50 hidden bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-sm p-5 space-y-4 border-blue-500/30">
+      <div class="flex items-center justify-between border-b border-slate-700/50 pb-3">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="shield-check" class="w-5 h-5 text-blue-400"></i>
+          <span>Campus SSO Login</span>
+        </h3>
+        <button onclick="closeAuthModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <p class="text-xs text-slate-300">Enter your IIM Bodh Gaya email to simulate Google SSO domain enforcement.</p>
+        <div>
+          <label class="text-xs text-slate-400 font-semibold block mb-1">Student Email (@iimbg.ac.in)</label>
+          <input type="email" id="auth-email-input" placeholder="student.name2025@iimbg.ac.in" class="w-full glass-input text-sm" value="aarav.s2025@iimbg.ac.in">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 font-semibold block mb-1">Full Name</label>
+          <input type="text" id="auth-name-input" placeholder="Aarav Sharma" class="w-full glass-input text-sm" value="Aarav Sharma">
+        </div>
+        <button onclick="submitAuthLogin()" class="w-full btn-primary text-sm py-2.5">Login with Google SSO</button>
+
+        <div class="relative py-2 text-center">
+          <span class="text-[10px] text-slate-500 uppercase tracking-wider bg-slate-900 px-2 font-bold">Local Dev Testing</span>
+          <div class="absolute inset-0 flex items-center -z-10"><div class="w-full border-t border-slate-700"></div></div>
+        </div>
+
+        <button onclick="submitDevBypass('student')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition border border-slate-700 flex items-center justify-center gap-1.5">
+          <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>Instant Student Bypass Login</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Scan Modal -->
+  <div id="qr-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-sm p-4 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-700/50 pb-2">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="qr-code" class="w-4 h-4 text-blue-400"></i>
+          <span>QR Scanner & Geofence Check</span>
+        </h3>
+        <button onclick="closeQRModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Camera Feed simulation / WebRTC -->
+      <div class="relative w-full h-48 bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex flex-col items-center justify-center text-center p-3">
+        <div class="w-32 h-32 border-2 border-dashed border-blue-400 rounded-xl flex items-center justify-center animate-pulse">
+          <i data-lucide="focus" class="w-12 h-12 text-blue-400/70"></i>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Align QR Code inside frame</p>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs text-slate-400 block font-medium">Or enter QR code payload manually:</label>
+        <div class="flex gap-2">
+          <input type="text" id="manual-qr-input" placeholder="e.g. IIMBG-RIDE-001" class="w-full glass-input text-xs">
+          <button onclick="processManualQR()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold text-white">Scan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dual Lock Modal (PIN + BLE) -->
+  <div id="lock-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-sm p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-700/50 pb-2">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="lock" class="w-5 h-5 text-blue-400"></i>
+          <span>Dual Lock Unlock Engine</span>
+        </h3>
+        <button onclick="closeLockModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="bg-slate-900/60 p-3 rounded-xl space-y-1 text-xs text-slate-300 border border-slate-800">
+        <p><span class="text-slate-400">Target Cycle:</span> <strong id="modal-cycle-code" class="text-blue-400">BG-CYCLE-001</strong></p>
+        <p><span class="text-slate-400">Nearest Hub:</span> <strong id="modal-hub-name" class="text-white">Academic Block</strong></p>
+        <p><span class="text-slate-400">Geofence Check:</span> <span id="modal-geofence-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400">PASSED (12m)</span></p>
+      </div>
+
+      <!-- Option A: PIN Reveal -->
+      <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-200">Option A: Manual PIN Reveal</span>
+          <span class="text-[10px] text-slate-400">4-Digit Lock</span>
+        </div>
+        <div id="pin-display" class="hidden text-center py-2 bg-slate-950 rounded-lg text-2xl font-black tracking-widest text-emerald-400 border border-emerald-500/30">
+          ----
+        </div>
+        <button id="pin-btn" onclick="revealLockPIN()" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold transition">
+          Reveal 4-Digit Unlock PIN
+        </button>
+      </div>
+
+      <!-- Option B: BLE / IoT Unlock Trigger -->
+      <div class="p-3 bg-blue-950/30 rounded-xl border border-blue-500/30 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-blue-300">Option B: Virtual BLE Smart Lock Pulse</span>
+          <span class="text-[10px] text-blue-400 font-mono" id="modal-ble-mac">AA:BB:CC:11:22:33</span>
+        </div>
+        <button id="ble-btn" onclick="triggerBLEUnlock()" class="w-full btn-primary text-xs py-2.5 flex items-center justify-center gap-2 pulse-ble">
+          <i data-lucide="bluetooth" class="w-4 h-4"></i>
+          <span>Send BLE Unlock Pulse</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- End Trip & AI Photo Verification Modal -->
+  <div id="end-trip-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-sm p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-700/50 pb-2">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="camera" class="w-5 h-5 text-emerald-400"></i>
+          <span>AI Parking Verification</span>
+        </h3>
+        <button onclick="closeEndTripModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <p class="text-xs text-slate-300">Take a photo of your parked cycle showing the locked smart lock within the hub boundary.</p>
+
+        <!-- Simulated Camera Snapshot Preview -->
+        <div id="photo-preview-container" class="w-full h-44 bg-slate-950 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center p-2">
+          <i data-lucide="image" class="w-10 h-10 text-slate-600 mb-1"></i>
+          <p class="text-xs text-slate-500">Photo Preview</p>
+        </div>
+
+        <button onclick="simulatePhotoCapture()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center gap-1.5">
+          <i data-lucide="aperture" class="w-4 h-4 text-emerald-400"></i>
+          <span>Capture Hub Parking Snapshot</span>
+        </button>
+
+        <button onclick="submitEndTrip()" class="w-full btn-success text-sm py-2.5">
+          Submit & End Ride
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Script -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

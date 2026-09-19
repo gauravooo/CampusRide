@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IIM Bodh Gaya - Fleet Admin Portal</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+  <!-- Admin Navigation -->
+  <nav class="sticky top-0 z-50 glass-card mx-4 mt-3 px-6 py-3.5 flex items-center justify-between border-b border-slate-700/50">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-blue-600/30 flex items-center justify-center text-blue-400 border border-blue-500/30">
+        <i data-lucide="shield" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-extrabold text-white tracking-tight">CampusRide Admin Portal</h1>
+        <p class="text-xs text-blue-400 font-semibold">IIM Bodh Gaya Fleet & AI Demand Operations</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-3">
+      <button onclick="loadAdminData()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 flex items-center gap-1.5 transition">
+        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+        <span>Refresh Dashboard</span>
+      </button>
+      <a href="/" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+        <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+        <span>Launch Mobile PWA</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Admin Main Container -->
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- KPI Summary Metrics Row -->
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div class="glass-card p-4">
+        <p class="text-xs text-slate-400 font-medium">Campus Hubs</p>
+        <p id="stat-hubs" class="text-2xl font-black text-white mt-1">10</p>
+        <p class="text-[10px] text-blue-400 mt-1">Centered ~24.6961° N</p>
+      </div>
+      <div class="glass-card p-4">
+        <p class="text-xs text-slate-400 font-medium">Active Rides Now</p>
+        <p id="stat-active" class="text-2xl font-black text-emerald-400 mt-1">0</p>
+        <p class="text-[10px] text-emerald-400/80 mt-1">Live Telemetry Active</p>
+      </div>
+      <div class="glass-card p-4">
+        <p class="text-xs text-slate-400 font-medium">Available Fleet</p>
+        <p id="stat-available" class="text-2xl font-black text-blue-400 mt-1">0</p>
+        <p class="text-[10px] text-slate-400 mt-1">Ready for unlocking</p>
+      </div>
+      <div class="glass-card p-4">
+        <p class="text-xs text-slate-400 font-medium">Maintenance</p>
+        <p id="stat-maint" class="text-2xl font-black text-amber-400 mt-1">0</p>
+        <p class="text-[10px] text-amber-400/80 mt-1">Smart Lock Serviced</p>
+      </div>
+      <div class="glass-card p-4">
+        <p class="text-xs text-slate-400 font-medium">Avg Student Trust</p>
+        <p id="stat-trust" class="text-2xl font-black text-purple-400 mt-1">98.5</p>
+        <p class="text-[10px] text-purple-400/80 mt-1">Geofence Compliance</p>
+      </div>
+    </div>
+
+    <!-- Map & AI Rebalancing Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Admin Live Map (Span 2) -->
+      <div class="lg:col-span-2 glass-card p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i data-lucide="map" class="w-5 h-5 text-blue-400"></i>
+            <span>Live Campus Fleet Telemetry Map</span>
+          </h2>
+          <span class="text-xs text-slate-400">Real-time Hub & Lock Coordinates</span>
+        </div>
+        <div id="admin-map" class="w-full h-96 rounded-xl border border-slate-700/50"></div>
+      </div>
+
+      <!-- AI Fleet Rebalancing Demand Forecaster -->
+      <div class="glass-card p-4 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i data-lucide="brain-circuit" class="w-5 h-5 text-purple-400"></i>
+            <span>AI Rebalancing Forecaster</span>
+          </h2>
+          <span class="text-[10px] font-bold text-purple-400 px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">RandomForest</span>
+        </div>
+        <p class="text-xs text-slate-400 mb-3">Predicts peak hub deficits based on class hours, dining schedules, and trip trends.</p>
+
+        <div class="overflow-y-auto max-h-80 space-y-2 pr-1" id="rebalance-list">
+          <!-- Rebalance alert items populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Student Trust Score & Fleet Telemetry Tables -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Student Trust Score Leaderboard -->
+      <div class="glass-card p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i data-lucide="award" class="w-5 h-5 text-amber-400"></i>
+            <span>Student Trust & Geofence Scores</span>
+          </h2>
+          <span class="text-xs text-slate-400">Domain Enforcement Active</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-800/60 text-slate-400 uppercase text-[10px] font-bold">
+              <tr>
+                <th class="p-2.5 rounded-l-lg">Student</th>
+                <th class="p-2.5">Email (@iimbg.ac.in)</th>
+                <th class="p-2.5">Trust Score</th>
+                <th class="p-2.5 rounded-r-lg">Status</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body" class="divide-y divide-slate-800">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Hub Fleet Status Table -->
+      <div class="glass-card p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i data-lucide="layers" class="w-5 h-5 text-emerald-400"></i>
+            <span>Hub Capacity & Cycle Inventory</span>
+          </h2>
+          <span class="text-xs text-slate-400">10 Campus Locations</span>
+        </div>
+
+        <div class="overflow-x-auto max-h-72">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-800/60 text-slate-400 uppercase text-[10px] font-bold">
+              <tr>
+                <th class="p-2.5 rounded-l-lg">Hub Name</th>
+                <th class="p-2.5">Code</th>
+                <th class="p-2.5">Available</th>
+                <th class="p-2.5">Capacity</th>
+                <th class="p-2.5 rounded-r-lg">Occupation</th>
+              </tr>
+            </thead>
+            <tbody id="hubs-table-body" class="divide-y divide-slate-800">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Admin Script -->
+  <script src="/static/js/admin.js"></script>
+</body>
+</html>
