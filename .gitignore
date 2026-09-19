@@ -1,19 +1,21 @@
-# SQLite Database
+# Dependencies & Builds
+node_modules/
+dist/
+.vite/
+
+# Database & Python cache
 campus.db
 *.db
-
-# Python bytecode & cache
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
 
-# Executables
+# Binaries & Executables
 cloudflare.exe
 cf.exe
 *.exe
 
-# System & OS logs
+# System logs
 *.log
 .DS_Store
 .vscode/
