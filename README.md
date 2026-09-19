@@ -36,16 +36,27 @@ python -m app.seed
 python -m uvicorn app.main:app --port 8000 --host 0.0.0.0
 ```
 
-### 4. Access URLs
+### 4. Local Access URLs
 - **Mobile PWA App**: `http://localhost:8000/`
 - **Desktop Admin Portal**: `http://localhost:8000/admin`
 - **API Health Check**: `http://localhost:8000/api/health`
 
 ---
 
-## 📱 Mobile Access via Public HTTPS Tunnel (Zero Splash Screen)
-Run Cloudflare Tunnel to access on any phone without exposing your local PC IP:
+## 📱 How to Get Your Instant Zero-Splash HTTPS Link for Phone & Panel Presentation
+
+Whenever you run your server locally on port `8000`, you can generate an instant, zero-splash public HTTPS URL using either method below:
+
+### Option 1: Built-in Windows SSH (Zero Installation Needed)
+Open terminal/PowerShell in the project folder and run:
 ```bash
-.\cloudflare.exe tunnel --url http://127.0.0.1:8000
+ssh -R 80:127.0.0.1:8000 nokey@localhost.run
 ```
-Open the generated `https://<subdomain>.trycloudflare.com` URL in **Safari (iOS)** or **Chrome (Android)** and select **"Add to Home Screen"** to install as a native PWA app icon.
+> **Output**: Prints an instant `https://<unique-id>.lhr.life` URL. Open this link on any phone browser. **Zero splash screen, zero warnings, 100% direct!**
+
+### Option 2: Cloudflare Tunnel
+Run Cloudflare Tunnel executable:
+```bash
+.\cloudflared.exe tunnel --url http://127.0.0.1:8000
+```
+> **Output**: Prints an instant `https://<unique-id>.trycloudflare.com` URL.
