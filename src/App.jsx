@@ -13,7 +13,8 @@ export default function App() {
     const saved = localStorage.getItem('campus_user');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && parsed.id) return parsed;
       } catch (e) {}
     }
     return { id: 1, name: 'Aarav Sharma', email: 'aarav.s2025@iimbg.ac.in', role: 'student', trustScore: 98.5, isDemo: true };
@@ -94,7 +95,11 @@ export default function App() {
 
   // Save state updates to LocalStorage
   useEffect(() => {
-    localStorage.setItem('campus_user', JSON.stringify(currentUser));
+    if (currentUser) {
+      localStorage.setItem('campus_user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('campus_user');
+    }
   }, [currentUser]);
 
   useEffect(() => {
