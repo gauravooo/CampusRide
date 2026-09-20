@@ -15,22 +15,31 @@ export default function Navbar({ currentUser, onOpenAuth, onLogout }) {
           <Bike className="w-5 h-5" />
         </div>
         <div>
-          <h1 className="text-sm font-black text-white leading-tight tracking-tight flex items-center gap-1.5">
+          <h1 className="text-sm sm:text-base font-black text-white leading-tight tracking-tight flex items-center gap-1.5">
             <span>CampusRide</span>
             <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300 font-mono">
               PWA
             </span>
           </h1>
-          <p className="text-[11px] text-blue-400 font-medium">IIM Bodh Gaya</p>
+          <p className="text-[11px] text-blue-400 font-medium hidden sm:block">Indian Institute of Management Bodh Gaya</p>
+          <p className="text-[11px] text-blue-400 font-medium sm:hidden">IIM Bodh Gaya</p>
         </div>
       </Link>
 
-      <div className="flex items-center space-x-2">
+      {/* Desktop Fleet Status Pill */}
+      <div className="hidden lg:flex items-center gap-2.5 px-3.5 py-1.5 bg-slate-950/80 rounded-full border border-white/10 text-xs text-slate-300 shadow-inner">
+        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span className="font-semibold text-slate-200">10 Campus Hubs Geofenced</span>
+        <span className="text-slate-600">•</span>
+        <span className="text-emerald-400 font-mono font-bold">200 Fleet Smart Locks</span>
+      </div>
+
+      <div className="flex items-center space-x-2 sm:space-x-3">
         {/* Navigation Route Tabs */}
-        <div className="flex bg-slate-950 p-1 rounded-2xl border border-white/10 text-xs font-bold">
+        <div className="flex bg-slate-950 p-1 rounded-2xl border border-white/10 text-xs font-bold shadow-inner">
           <Link
             to="/"
-            className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition ${
+            className={`px-3 sm:px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition ${
               !isAdminRoute
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'text-slate-400 hover:text-slate-200'
@@ -42,7 +51,7 @@ export default function Navbar({ currentUser, onOpenAuth, onLogout }) {
 
           <Link
             to="/admin"
-            className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition ${
+            className={`px-3 sm:px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition ${
               isAdminRoute
                 ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
                 : 'text-slate-400 hover:text-slate-200'
@@ -58,16 +67,19 @@ export default function Navbar({ currentUser, onOpenAuth, onLogout }) {
           <div className="relative">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl text-xs font-bold border border-white/10 transition flex items-center gap-1.5"
+              className="px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl text-xs font-bold border border-white/10 transition flex items-center gap-1.5"
             >
               {currentUser.picture ? (
-                <img src={currentUser.picture} alt="Avatar" className="w-4 h-4 rounded-full object-cover" />
+                <img src={currentUser.picture} alt="Avatar" className="w-5 h-5 rounded-full object-cover" />
               ) : currentUser.role === 'admin' ? (
                 <Shield className="w-3.5 h-3.5 text-purple-400" />
               ) : (
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               )}
-              <span className="max-w-[75px] truncate">{currentUser.name.split(' ')[0]}</span>
+              <span className="max-w-[80px] sm:max-w-[120px] truncate">{currentUser.name}</span>
+              <span className="hidden sm:inline-block text-[10px] font-mono px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-300 font-extrabold">
+                {currentUser.trustScore ? currentUser.trustScore.toFixed(1) : '100.0'}
+              </span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 

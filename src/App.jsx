@@ -240,7 +240,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-16">
-      <main className="max-w-xl mx-auto px-3 pt-3">
+      <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-3 pb-16">
         <Navbar
           currentUser={currentUser}
           onOpenAuth={() => setShowAuthModal(true)}
