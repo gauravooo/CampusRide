@@ -7,4 +7,4 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "campusride-db"
-database_id = "campusride-db-id" # Replace with your D1 database ID from Cloudflare dashboard
+database_id = "c8c645a2-400a-40ee-8a10-5915a880d3a5" # Replace with your D1 database ID from Cloudflare dashboard
