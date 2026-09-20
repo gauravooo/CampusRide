@@ -238,7 +238,7 @@ export default function StudentView({
             <option value="">-- Choose Cycle QR --</option>
             {availableCycles.slice(0, 40).map((c) => (
               <option key={c.id} value={c.qrCode}>
-                {c.code} ({hubs.find((h) => h.id === c.hubId)?.name || 'Campus Hub'}) • {c.batteryPct}% Battery • PIN: {c.lockPin}
+                {c.code} ({hubs.find((h) => h.id === c.hubId)?.name || 'Campus Hub'}) • {c.batteryPct}% Battery
               </option>
             ))}
           </select>
@@ -295,7 +295,7 @@ export default function StudentView({
                 <span className="text-[10px] text-slate-400 block truncate">{h?.name || 'Main Gate'}</span>
                 <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/5 font-mono">
                   <span className="text-emerald-400 font-bold">{c.batteryPct}%</span>
-                  <span className="text-slate-400">PIN: {c.lockPin}</span>
+                  <span className="text-blue-400 font-semibold">Tap to Unlock</span>
                 </div>
               </div>
             );

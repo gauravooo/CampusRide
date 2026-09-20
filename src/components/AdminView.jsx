@@ -59,7 +59,7 @@ export default function AdminView({
       localStorage.setItem('admin_unlocked', 'true');
       setPinError('');
     } else {
-      setPinError('Invalid Admin Passcode. (Default Passcode: 8888)');
+      setPinError('Invalid Admin Passcode. Please enter your authorized PIN.');
     }
   };
 
@@ -138,7 +138,7 @@ export default function AdminView({
               <label className="text-xs text-slate-400 font-semibold block mb-1">Enter Admin PIN / Passcode:</label>
               <input
                 type="password"
-                placeholder="Default PIN: 8888"
+                placeholder="Enter 4-digit PIN"
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
                 className="w-full glass-input text-center text-xl tracking-widest font-mono rounded-xl py-3"

@@ -16,8 +16,9 @@ export default function CampusMap({ hubs, cycles, height = "h-56", onSelectCycle
         attributionControl: false
       }).setView([24.6961, 84.9869], 16);
 
-      // 100% Free Open-Access Dark Tiles (OpenStreetMap + CARTO basemaps - Zero API keys required)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      // CARTO Dark Matter Basemaps with API key
+      const cartoApiKey = import.meta.env.VITE_CARTO_API_KEY || 'cb1_3rjr_1_44d8c30ca60ac913e3f7a9ee';
+      L.tileLayer(`https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?api_key=${cartoApiKey}`, {
         maxZoom: 19,
         subdomains: 'abcd',
         attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
@@ -103,7 +104,7 @@ export default function CampusMap({ hubs, cycles, height = "h-56", onSelectCycle
         <div style="padding:4px; text-align:center; font-family:sans-serif;">
           <strong style="color:#ffffff; font-size:13px; display:block;">${c.code}</strong>
           <span style="font-size:11px; color:#10b981; font-weight:bold;">⚡ ${c.batteryPct}% Battery</span><br/>
-          <span style="font-size:10px; color:#94a3b8; font-family:monospace;">PIN: ${c.lockPin}</span>
+          <span style="font-size:10px; color:#60a5fa; font-family:sans-serif;">Tap to scan & unlock</span>
         </div>
       `);
       layers.addLayer(cycleMarker);

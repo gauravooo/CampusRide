@@ -12,7 +12,7 @@ export default function AuthModal({ isOpen, onClose, onLogin }) {
   const [successMsg, setSuccessMsg] = useState('');
   const [showConfig, setShowConfig] = useState(false);
   const [googleClientId, setGoogleClientId] = useState(() => {
-    return localStorage.getItem('campus_google_client_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+    return localStorage.getItem('campus_google_client_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID || '509461351344-5oi514h56p57nuj2vhlq426grv3ejjv4.apps.googleusercontent.com';
   });
 
   const googleBtnRef = useRef(null);

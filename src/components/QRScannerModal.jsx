@@ -319,7 +319,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
                     </div>
                     <div>
                       <strong className="text-xs font-bold text-white block">{c.code}</strong>
-                      <span className="text-[10px] text-slate-400 font-mono">PIN: {c.lockPin}</span>
+                      <span className="text-[10px] text-blue-400 font-mono">Available</span>
                     </div>
                   </div>
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
