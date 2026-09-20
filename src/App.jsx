@@ -52,6 +52,7 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [userLocation, setUserLocation] = useState({ lat: 24.6808, lng: 84.9665 });
   const [completedTripResult, setCompletedTripResult] = useState(null);
+  const [trips, setTrips] = useState([]);
 
   // Load persistent data from Cloudflare D1 SQL / API
   useEffect(() => {
@@ -88,6 +89,11 @@ export default function App() {
             return c;
           });
         });
+      }
+
+      const remoteTrips = await api.getTrips();
+      if (remoteTrips && remoteTrips.length > 0) {
+        setTrips(remoteTrips);
       }
     }
     loadData();
@@ -187,6 +193,41 @@ export default function App() {
 
     // Target hub coordinates
     const targetHub = hubs.find((h) => String(h.id) === String(endHubId));
+    const startHub = hubs.find((h) => String(h.id) === String(activeTrip.startHubId));
+
+    const durationMinutes = Math.max(0.5, Math.round((durationSeconds / 60) * 10) / 10);
+    const completedTripRecord = {
+      id: Date.now(),
+      userId: currentUser?.id || 1,
+      userName: currentUser?.name || 'Campus Student',
+      userEmail: currentUser?.email || 'student@iimbg.ac.in',
+      cycleId: activeTrip.cycleId,
+      cycleCode: activeTrip.cycleCode,
+      startHubId: activeTrip.startHubId || 1,
+      startHubName: startHub?.name || 'Academic Block',
+      endHubId: endHubId || activeTrip.startHubId || 1,
+      endHubName: endHubName || targetHub?.name || 'Campus Hub',
+      startTime: activeTrip.startTime,
+      endTime: new Date().toISOString(),
+      durationMinutes,
+      photoVerified: Boolean(photoVerified),
+      trustDelta,
+      withinGeofence: Boolean(withinGeofence),
+      status: 'completed'
+    };
+
+    api.saveTrip(completedTripRecord)
+      .then((updatedTrips) => {
+        if (Array.isArray(updatedTrips)) {
+          setTrips(updatedTrips);
+        } else {
+          setTrips((prev) => [completedTripRecord, ...prev]);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to save trip to API:', err);
+        setTrips((prev) => [completedTripRecord, ...prev]);
+      });
 
     // Relocate cycle to designated drop-off hub
     setCycles((prev) =>
@@ -322,6 +363,7 @@ export default function App() {
                 cycles={cycles}
                 activeTrip={activeTrip}
                 users={users}
+                trips={trips}
                 onAdjustTrustScore={handleAdjustTrustScore}
                 onSaveHub={handleSaveHub}
                 onDeleteHub={handleDeleteHub}

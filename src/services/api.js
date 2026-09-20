@@ -1,7 +1,7 @@
 // Unified API Service for CampusRide
 // Connects to Cloudflare D1 Serverless SQL API with seamless LocalStorage / Offline PWA fallback
 
-import { CAMPUS_HUBS } from '../data/initialData';
+import { CAMPUS_HUBS, generateInitialTrips } from '../data/initialData';
 
 const INITIAL_USERS = [
   { id: 1, name: 'Aarav Sharma', email: 'aarav.s2025@iimbg.ac.in', role: 'student', trustScore: 98.5 },
@@ -182,6 +182,91 @@ export const api = {
     const current = await this.getHubs();
     const updated = current.filter((h) => h.id !== hubId);
     localStorage.setItem('campus_hubs_cache', JSON.stringify(updated));
+    return updated;
+  },
+
+  // 3. Rides, Telemetry & Two-Month Archival
+  async getTrips() {
+    try {
+      const res = await fetch('/api/trips');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const normalized = data.map((t) => ({
+            id: t.id,
+            userId: t.user_id || t.userId,
+            userName: t.user_name || t.userName || 'Campus Student',
+            userEmail: t.user_email || t.userEmail || '',
+            cycleId: t.cycle_id || t.cycleId,
+            cycleCode: t.cycle_code || t.cycleCode || 'BG-CYCLE-001',
+            startHubId: t.start_hub_id || t.startHubId,
+            startHubName: t.start_hub_name || t.startHubName || 'Campus Hub',
+            endHubId: t.end_hub_id || t.endHubId,
+            endHubName: t.end_hub_name || t.endHubName || 'Campus Hub',
+            startTime: t.start_time || t.startTime,
+            endTime: t.end_time || t.endTime,
+            durationMinutes: parseFloat(t.duration_minutes || t.durationMinutes) || 5.0,
+            photoVerified: Boolean(t.photo_verified ?? t.photoVerified),
+            trustDelta: parseFloat(t.trust_score_delta ?? t.trustDelta) || 0.0,
+            withinGeofence: Boolean(t.within_geofence ?? t.withinGeofence),
+            status: t.status || 'completed'
+          }));
+          localStorage.setItem('campus_trips_cache', JSON.stringify(normalized));
+          return normalized;
+        }
+      }
+    } catch (e) {
+      console.warn('[API] Using local cached trips fallback:', e.message);
+    }
+
+    const cached = localStorage.getItem('campus_trips_cache');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return generateInitialTrips();
+  },
+
+  async saveTrip(trip) {
+    let savedTrip = null;
+    try {
+      const res = await fetch('/api/trips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(trip)
+      });
+      if (res.ok) {
+        savedTrip = await res.json();
+      }
+    } catch (e) {
+      console.warn('[API] Trip saved locally:', e.message);
+    }
+
+    const current = await this.getTrips();
+    const normalizedNew = {
+      id: savedTrip?.id || trip.id || Date.now(),
+      userId: trip.userId || trip.user_id || 1,
+      userName: trip.userName || trip.user_name || 'Campus Student',
+      userEmail: trip.userEmail || trip.user_email || '',
+      cycleId: trip.cycleId || trip.cycle_id || 1,
+      cycleCode: trip.cycleCode || trip.cycle_code || 'BG-CYCLE-001',
+      startHubId: trip.startHubId || trip.start_hub_id || 1,
+      startHubName: trip.startHubName || trip.start_hub_name || 'Campus Hub',
+      endHubId: trip.endHubId || trip.end_hub_id || 1,
+      endHubName: trip.endHubName || trip.end_hub_name || 'Campus Hub',
+      startTime: trip.startTime || trip.start_time || new Date().toISOString(),
+      endTime: trip.endTime || trip.end_time || new Date().toISOString(),
+      durationMinutes: parseFloat(trip.durationMinutes || trip.duration_minutes) || 5.0,
+      photoVerified: Boolean(trip.photoVerified ?? trip.photo_verified),
+      trustDelta: parseFloat(trip.trustDelta ?? trip.trust_score_delta) || 0.0,
+      withinGeofence: Boolean(trip.withinGeofence ?? trip.within_geofence),
+      status: trip.status || 'completed'
+    };
+
+    const updated = [normalizedNew, ...current];
+    localStorage.setItem('campus_trips_cache', JSON.stringify(updated));
     return updated;
   }
 };

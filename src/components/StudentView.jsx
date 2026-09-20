@@ -71,6 +71,11 @@ export default function StudentView({
   };
 
   const handleScanSuccess = (qrPayload) => {
+    if (activeTrip) {
+      alert(`Active Ride in Progress: You already have an active ride with cycle ${activeTrip.cycleCode}. Please end your current ride before unlocking another cycle.`);
+      return;
+    }
+
     const cycle = safeCycles.find(
       (c) =>
         c.qrCode.toLowerCase() === qrPayload.toLowerCase() ||
@@ -100,7 +105,7 @@ export default function StudentView({
   };
 
   const handleBLEUnlock = () => {
-    if (!selectedCycle) return;
+    if (!selectedCycle || activeTrip) return;
     setBleConnecting(true);
     setTimeout(() => {
       setBleConnecting(false);
@@ -110,7 +115,7 @@ export default function StudentView({
   };
 
   const handlePINUnlock = () => {
-    if (!selectedCycle) return;
+    if (!selectedCycle || activeTrip) return;
     setShowPIN(true);
     setTimeout(() => {
       setShowLockModal(false);
@@ -203,7 +208,13 @@ export default function StudentView({
               cycles={safeCycles}
               height="h-64 sm:h-80 md:h-96 lg:h-[430px]"
               userLocation={userLocation}
-              onSelectCycle={(qrCode) => handleScanSuccess(qrCode)}
+              onSelectCycle={(qrCode) => {
+                if (activeTrip) {
+                  alert(`Active Ride in Progress: You already have an active ride with ${activeTrip.cycleCode}. Finish your active ride before unlocking another cycle.`);
+                  return;
+                }
+                handleScanSuccess(qrCode);
+              }}
             />
           </div>
 
@@ -250,16 +261,31 @@ export default function StudentView({
                 return (
                   <div
                     key={c.id}
-                    onClick={() => handleScanSuccess(c.qrCode)}
-                    className="p-2.5 bg-slate-950/80 hover:bg-blue-950/60 rounded-xl border border-white/10 text-center space-y-1.5 cursor-pointer transition group"
+                    onClick={() => {
+                      if (activeTrip) {
+                        alert(`Active Ride in Progress: You already have an active ride with ${activeTrip.cycleCode}. Finish your active ride before unlocking another cycle.`);
+                        return;
+                      }
+                      handleScanSuccess(c.qrCode);
+                    }}
+                    className={`p-2.5 rounded-xl border text-center space-y-1.5 transition group ${
+                      activeTrip
+                        ? 'bg-slate-950/40 border-white/5 opacity-50 cursor-not-allowed'
+                        : 'bg-slate-950/80 hover:bg-blue-950/60 border-white/10 cursor-pointer'
+                    }`}
                   >
-                    <strong className="text-xs font-black text-white block font-mono group-hover:text-blue-400 transition">
-                      {c.code}
-                    </strong>
+                    <div className="flex items-center justify-center gap-1">
+                      {activeTrip && <Lock className="w-3 h-3 text-amber-400" />}
+                      <strong className="text-xs font-black text-white block font-mono group-hover:text-blue-400 transition">
+                        {c.code}
+                      </strong>
+                    </div>
                     <span className="text-[10px] text-slate-400 block truncate">{h?.name || 'Campus Hub'}</span>
                     <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/5 font-mono">
                       <span className="text-emerald-400 font-bold">⚡ {c.batteryPct}%</span>
-                      <span className="text-blue-400 font-semibold group-hover:underline">Unlock</span>
+                      <span className={activeTrip ? "text-slate-500 font-semibold" : "text-blue-400 font-semibold group-hover:underline"}>
+                        {activeTrip ? 'Locked' : 'Unlock'}
+                      </span>
                     </div>
                   </div>
                 );
@@ -283,29 +309,67 @@ export default function StudentView({
               </p>
             </div>
 
+            {/* Active Ride Lock Notice if in progress */}
+            {activeTrip && (
+              <div className="p-3 bg-amber-950/80 border border-amber-500/40 rounded-2xl text-xs text-amber-300 flex items-center gap-2.5 text-left">
+                <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <span className="leading-tight">
+                  Ride in progress with <strong className="text-white font-mono">{activeTrip.cycleCode}</strong>. You cannot scan or unlock another cycle until this ride is completed.
+                </span>
+              </div>
+            )}
+
             {/* Large Blue Scan Button */}
             <button
-              onClick={() => setShowQRModal(true)}
-              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-extrabold text-sm rounded-2xl shadow-xl shadow-blue-600/30 flex items-center justify-center gap-2 transition active:scale-98"
+              disabled={Boolean(activeTrip)}
+              onClick={() => {
+                if (activeTrip) {
+                  alert(`Active Ride in Progress: You already have an active ride with ${activeTrip.cycleCode}. Finish your active ride before scanning another cycle.`);
+                  return;
+                }
+                setShowQRModal(true);
+              }}
+              className={`w-full py-3.5 font-extrabold text-sm rounded-2xl shadow-xl flex items-center justify-center gap-2 transition ${
+                activeTrip
+                  ? 'bg-slate-800 text-slate-400 border border-white/10 cursor-not-allowed opacity-80'
+                  : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-blue-600/30 active:scale-98'
+              }`}
             >
-              <Camera className="w-5 h-5" />
-              <span>Scan Cycle QR Code</span>
+              {activeTrip ? (
+                <>
+                  <Lock className="w-5 h-5 text-amber-400" />
+                  <span>Ride in Progress ({activeTrip.cycleCode})</span>
+                </>
+              ) : (
+                <>
+                  <Camera className="w-5 h-5" />
+                  <span>Scan Cycle QR Code</span>
+                </>
+              )}
             </button>
 
             {/* Quick Select Demo Cycle Dropdown */}
             <div className="space-y-1.5 pt-1 text-left">
               <label className="text-xs text-slate-400 font-semibold text-center block">Quick Select Cycle:</label>
               <select
+                disabled={Boolean(activeTrip)}
                 onChange={(e) => {
+                  if (activeTrip) return;
                   if (e.target.value) {
                     handleScanSuccess(e.target.value);
                     e.target.value = '';
                   }
                 }}
-                className="w-full glass-input text-xs py-2.5 rounded-2xl text-slate-200 bg-slate-950 border-slate-800 font-medium cursor-pointer"
+                className={`w-full glass-input text-xs py-2.5 rounded-2xl border-slate-800 font-medium ${
+                  activeTrip
+                    ? 'bg-slate-900 text-slate-500 cursor-not-allowed opacity-60'
+                    : 'text-slate-200 bg-slate-950 cursor-pointer'
+                }`}
               >
-                <option value="">-- Choose Cycle QR --</option>
-                {availableCycles.slice(0, 40).map((c) => (
+                <option value="">
+                  {activeTrip ? `🔒 Locked: Active Ride with ${activeTrip.cycleCode}` : '-- Choose Cycle QR --'}
+                </option>
+                {!activeTrip && availableCycles.slice(0, 40).map((c) => (
                   <option key={c.id} value={c.qrCode}>
                     {c.code} ({safeHubs.find((h) => h.id === c.hubId)?.name || 'Campus Hub'}) • {c.batteryPct}% Battery
                   </option>
