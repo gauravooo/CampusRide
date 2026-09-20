@@ -410,6 +410,7 @@ export default function StudentView({
         }}
         hubs={safeHubs}
         userLocation={userLocation}
+        currentUser={currentUser}
       />
 
       {/* Dual Lock Unlock Engine Modal (Portal on document.body) */}

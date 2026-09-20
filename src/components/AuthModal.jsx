@@ -70,7 +70,8 @@ export default function AuthModal({ isOpen, onClose, onLogin }) {
         name: payload.name || userEmail.split('@')[0],
         picture: payload.picture || '',
         role,
-        trustScore: 100.0
+        trustScore: 100.0,
+        isDemo: false
       });
       onClose();
     } catch (e) {
@@ -86,7 +87,8 @@ export default function AuthModal({ isOpen, onClose, onLogin }) {
       email: targetEmail,
       name: targetName,
       role,
-      trustScore: role === 'admin' ? 100.0 : 98.5
+      trustScore: role === 'admin' ? 100.0 : 98.5,
+      isDemo: true
     });
     onClose();
   };

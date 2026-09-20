@@ -6,13 +6,17 @@ import AdminView from './components/AdminView';
 import AuthModal from './components/AuthModal';
 import { CAMPUS_HUBS, generateInitialCycles } from './data/initialData';
 import { api } from './services/api';
+import TripCompleteModal from './components/TripCompleteModal';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('campus_user');
-    return saved
-      ? JSON.parse(saved)
-      : { id: 1, name: 'Aarav Sharma', email: 'aarav.s2025@iimbg.ac.in', role: 'student', trustScore: 98.5 };
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return { id: 1, name: 'Aarav Sharma', email: 'aarav.s2025@iimbg.ac.in', role: 'student', trustScore: 98.5, isDemo: true };
   });
 
   const [hubs, setHubs] = useState(() => {
@@ -46,6 +50,7 @@ export default function App() {
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [userLocation, setUserLocation] = useState({ lat: 24.6808, lng: 84.9665 });
+  const [completedTripResult, setCompletedTripResult] = useState(null);
 
   // Load persistent data from Cloudflare D1 SQL / API
   useEffect(() => {
@@ -53,10 +58,12 @@ export default function App() {
       const remoteUsers = await api.getUsers();
       if (remoteUsers && remoteUsers.length > 0) {
         setUsers(remoteUsers);
-        // Sync currentUser trust score
-        const found = remoteUsers.find((u) => u.email === currentUser.email);
-        if (found) {
-          setCurrentUser((prev) => ({ ...prev, trustScore: found.trustScore }));
+        // Sync currentUser trust score safely
+        if (currentUser?.email) {
+          const found = remoteUsers.find((u) => u.email === currentUser.email);
+          if (found) {
+            setCurrentUser((prev) => (prev ? { ...prev, trustScore: found.trustScore } : prev));
+          }
         }
       }
 
@@ -143,7 +150,14 @@ export default function App() {
   const handleEndTrip = (result) => {
     if (!activeTrip) return;
 
-    const { photoVerified, withinGeofence, endHubId, endHubName } = result;
+    const { photoVerified, withinGeofence, endHubId, endHubName, isDemoSimulated } = result;
+
+    // Calculate trip duration for statistics
+    let durationSeconds = 0;
+    if (activeTrip.startTime) {
+      const startMs = new Date(activeTrip.startTime).getTime();
+      durationSeconds = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+    }
 
     // Trust delta calculation
     let trustDelta = 0.0;
@@ -155,43 +169,72 @@ export default function App() {
       trustDelta = -5.0; // Penalty for dropping bike outside designated campus hub
     }
 
-    const newScore = Math.min(100.0, Math.max(0.0, (currentUser.trustScore || 100.0) + trustDelta));
+    const currentScore = typeof currentUser?.trustScore === 'number' ? currentUser.trustScore : 100.0;
+    const newScore = Math.min(100.0, Math.max(0.0, currentScore + trustDelta));
 
-    // Update currentUser and persist to D1
-    setCurrentUser((prev) => ({ ...prev, trustScore: newScore }));
-    handleAdjustTrustScore(currentUser.id, newScore, `Ride completed at ${endHubName || 'Campus Hub'}`);
+    // Update currentUser and persist to D1 safely
+    if (currentUser) {
+      setCurrentUser((prev) => (prev ? { ...prev, trustScore: newScore } : prev));
+      if (currentUser.id) {
+        handleAdjustTrustScore(currentUser.id, newScore, `Ride completed at ${endHubName || 'Campus Hub'}`);
+      }
+    }
+
+    // Target hub coordinates
+    const targetHub = hubs.find((h) => String(h.id) === String(endHubId));
 
     // Relocate cycle to designated drop-off hub
     setCycles((prev) =>
       prev.map((c) =>
-        c.id === activeTrip.cycleId
+        String(c.id) === String(activeTrip.cycleId)
           ? {
               ...c,
               status: 'available',
               hubId: endHubId || c.hubId,
-              lat: hubs.find((h) => h.id === endHubId)?.lat || c.lat,
-              lng: hubs.find((h) => h.id === endHubId)?.lng || c.lng,
+              lat: targetHub?.lat ?? c.lat,
+              lng: targetHub?.lng ?? c.lng,
               totalTrips: (c.totalTrips || 0) + 1
             }
           : c
       )
     );
 
-    setActiveTrip(null);
+    const endedTripCycleCode = activeTrip.cycleCode;
 
-    alert(
-      withinGeofence
-        ? `🎉 Ride Completed! Drop-off verified at designated hub '${endHubName}'. Trust Score +2.0 pts.`
-        : `⚠️ Ride Completed! Drop-off occurred OUTSIDE designated station bounds. Trust Score penalized (${trustDelta} pts).`
-    );
+    // Unconditionally clear active trip
+    setActiveTrip(null);
+    localStorage.removeItem('campus_active_trip');
+
+    // Trigger modern in-app trip completion modal
+    setCompletedTripResult({
+      cycleCode: endedTripCycleCode,
+      durationSeconds,
+      co2Grams: Math.round(durationSeconds * 0.15),
+      calories: Math.round(durationSeconds * 0.08),
+      endHubName: endHubName || 'Campus Hub',
+      withinGeofence,
+      photoVerified,
+      trustDelta,
+      newTrustScore: newScore,
+      isDemoSimulated: Boolean(isDemoSimulated)
+    });
   };
 
   // Admin adjustments (saved to Cloudflare D1 SQL & local state)
   const handleAdjustTrustScore = async (userId, newScore, reason) => {
-    const updatedUsers = await api.adjustTrustScore(userId, newScore, reason);
-    setUsers(updatedUsers);
-    if (currentUser.id === userId) {
-      setCurrentUser((prev) => ({ ...prev, trustScore: newScore }));
+    try {
+      const updatedUsers = await api.adjustTrustScore(userId, newScore, reason);
+      if (Array.isArray(updatedUsers)) {
+        setUsers(updatedUsers);
+      }
+      setCurrentUser((prev) => {
+        if (prev && String(prev.id) === String(userId)) {
+          return { ...prev, trustScore: newScore };
+        }
+        return prev;
+      });
+    } catch (err) {
+      console.error('Failed to adjust trust score:', err);
     }
   };
 
@@ -225,10 +268,14 @@ export default function App() {
 
   const handleLogin = async (userData) => {
     const saved = await api.loginUser(userData.email, userData.name, userData.picture);
-    setCurrentUser(saved);
+    const enriched = {
+      ...saved,
+      isDemo: Boolean(userData.isDemo)
+    };
+    setCurrentUser(enriched);
     setUsers((prev) => {
-      const exists = prev.some((u) => u.email === saved.email);
-      return exists ? prev.map((u) => (u.email === saved.email ? saved : u)) : [...prev, saved];
+      const exists = prev.some((u) => u.email === enriched.email);
+      return exists ? prev.map((u) => (u.email === enriched.email ? enriched : u)) : [...prev, enriched];
     });
   };
 
@@ -284,6 +331,12 @@ export default function App() {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onLogin={handleLogin}
+      />
+
+      <TripCompleteModal
+        isOpen={Boolean(completedTripResult)}
+        onClose={() => setCompletedTripResult(null)}
+        tripResult={completedTripResult}
       />
     </div>
   );
