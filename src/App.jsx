@@ -182,12 +182,19 @@ export default function App() {
     setHubs(updatedHubs);
   };
 
-  const handleLogin = (user) => {
-    setCurrentUser(user);
+  const handleLogin = async (userData) => {
+    const saved = await api.loginUser(userData.email, userData.name, userData.picture);
+    setCurrentUser(saved);
     setUsers((prev) => {
-      const exists = prev.some((u) => u.email === user.email);
-      return exists ? prev : [...prev, user];
+      const exists = prev.some((u) => u.email === saved.email);
+      return exists ? prev.map((u) => (u.email === saved.email ? saved : u)) : [...prev, saved];
     });
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('campus_user');
+    setCurrentUser(null);
+    setShowAuthModal(true);
   };
 
   return (
@@ -196,6 +203,7 @@ export default function App() {
         <Navbar
           currentUser={currentUser}
           onOpenAuth={() => setShowAuthModal(true)}
+          onLogout={handleLogout}
         />
 
         <Routes>

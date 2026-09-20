@@ -57,6 +57,40 @@ export const api = {
     return updated;
   },
 
+  async loginUser(email, name, picture = '') {
+    const trimmedEmail = email.trim().toLowerCase();
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail, name, picture })
+      });
+      if (res.ok) {
+        const user = await res.json();
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          trustScore: typeof user.trust_score === 'number' ? user.trust_score : (user.trustScore || 100.0),
+          picture: user.picture || picture
+        };
+      }
+    } catch (e) {
+      console.warn('[API] Login fallback to local storage:', e.message);
+    }
+
+    const role = trimmedEmail.startsWith('admin@') ? 'admin' : 'student';
+    return {
+      id: Date.now(),
+      name: name || trimmedEmail.split('@')[0],
+      email: trimmedEmail,
+      role,
+      trustScore: 100.0,
+      picture
+    };
+  },
+
   // 2. Designated Campus Pickup & Drop Hubs
   async getHubs() {
     try {

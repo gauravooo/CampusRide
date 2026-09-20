@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bike, Shield, LogIn, LayoutDashboard, Smartphone } from 'lucide-react';
+import { Bike, Shield, LogIn, LayoutDashboard, Smartphone, LogOut, User, Award, ShieldCheck, ChevronDown } from 'lucide-react';
 
-export default function Navbar({ currentUser, onOpenAuth }) {
+export default function Navbar({ currentUser, onOpenAuth, onLogout }) {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   return (
-    <nav className="glass-card p-3.5 rounded-3xl flex items-center justify-between border border-blue-500/20 bg-slate-900/90 shadow-xl mb-4">
+    <nav className="glass-card p-3.5 rounded-3xl flex items-center justify-between border border-blue-500/20 bg-slate-900/90 shadow-xl mb-4 relative z-40">
       {/* Brand Logo & IIMBG Tag */}
       <Link to="/" className="flex items-center space-x-3 group">
         <div className="w-10 h-10 rounded-2xl bg-blue-600/30 group-hover:bg-blue-600/40 flex items-center justify-center text-blue-400 border border-blue-500/30 shadow transition">
@@ -52,20 +53,76 @@ export default function Navbar({ currentUser, onOpenAuth }) {
           </Link>
         </div>
 
-        {/* User Account / Login Button */}
+        {/* User Account / Profile Button */}
         {currentUser ? (
-          <button
-            onClick={onOpenAuth}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl text-xs font-bold border border-white/10 transition flex items-center gap-1.5"
-            title="Switch User / SSO Profile"
-          >
-            {currentUser.role === 'admin' ? (
-              <Shield className="w-3.5 h-3.5 text-purple-400" />
-            ) : (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl text-xs font-bold border border-white/10 transition flex items-center gap-1.5"
+            >
+              {currentUser.picture ? (
+                <img src={currentUser.picture} alt="Avatar" className="w-4 h-4 rounded-full object-cover" />
+              ) : currentUser.role === 'admin' ? (
+                <Shield className="w-3.5 h-3.5 text-purple-400" />
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              )}
+              <span className="max-w-[75px] truncate">{currentUser.name.split(' ')[0]}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+
+            {/* User Profile Dropdown Popover */}
+            {showUserMenu && (
+              <div className="absolute right-0 top-full mt-2 w-64 glass-card p-4 space-y-3 border-blue-500/30 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 z-50">
+                <div className="flex items-center gap-2.5 pb-2 border-b border-white/10">
+                  {currentUser.picture ? (
+                    <img src={currentUser.picture} alt="Avatar" className="w-9 h-9 rounded-full object-cover border border-blue-400" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-blue-600/30 flex items-center justify-center text-blue-400 font-black border border-blue-500/30">
+                      {currentUser.name.charAt(0)}
+                    </div>
+                  )}
+                  <div className="truncate">
+                    <strong className="text-xs font-bold text-white block truncate">{currentUser.name}</strong>
+                    <span className="text-[10px] text-blue-400 font-mono block truncate">{currentUser.email}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs bg-slate-950/80 p-2.5 rounded-xl border border-white/5">
+                  <span className="text-slate-400 font-semibold flex items-center gap-1">
+                    <Award className="w-3.5 h-3.5 text-amber-400" /> Trust Score:
+                  </span>
+                  <strong className="text-emerald-400 font-black">
+                    {currentUser.trustScore ? currentUser.trustScore.toFixed(1) : '100.0'}
+                  </strong>
+                </div>
+
+                <div className="space-y-1 pt-1">
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      onOpenAuth();
+                    }}
+                    className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition flex items-center justify-center gap-1.5"
+                  >
+                    <User className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Switch Campus Account</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      onLogout();
+                    }}
+                    className="w-full py-2 bg-red-950/40 hover:bg-red-900/60 text-red-300 text-xs font-semibold rounded-xl transition border border-red-500/30 flex items-center justify-center gap-1.5"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-red-400" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
             )}
-            <span className="max-w-[80px] truncate">{currentUser.name.split(' ')[0]}</span>
-          </button>
+          </div>
         ) : (
           <button
             onClick={onOpenAuth}
