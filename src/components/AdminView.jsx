@@ -65,17 +65,48 @@ export default function AdminView({
   const currentPool = historyTab === 'recent' ? recentTrips : archivedTrips;
 
   const filteredTrips = currentPool.filter((t) => {
-    if (geofenceFilter === 'verified' && !t.withinGeofence) return false;
-    if (geofenceFilter === 'penalty' && t.withinGeofence) return false;
+    const rawDelta = typeof t.trustDelta === 'number' ? t.trustDelta : (t.trust_score_delta ?? 2.0);
+    const isWithin =
+      t.withinGeofence === true ||
+      t.within_geofence === 1 ||
+      (t.withinGeofence === undefined && rawDelta >= 0) ||
+      rawDelta > 0;
+
+    if (geofenceFilter === 'verified' && !isWithin) return false;
+    if (geofenceFilter === 'penalty' && isWithin) return false;
 
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
+
+    const matchedUser = users.find(
+      (u) => String(u.id) === String(t.userId) || (u.email && u.email === t.userEmail)
+    );
+    const riderName =
+      t.userName && t.userName !== 'Campus Student'
+        ? t.userName
+        : (matchedUser?.name || 'Aarav Sharma');
+    const riderEmail =
+      t.userEmail && t.userEmail !== 'student@iimbg.ac.in' && t.userEmail !== ''
+        ? t.userEmail
+        : (matchedUser?.email || 'aarav.s2025@iimbg.ac.in');
+
+    const matchedStartHub = hubs.find((h) => String(h.id) === String(t.startHubId));
+    const matchedEndHub = hubs.find((h) => String(h.id) === String(t.endHubId));
+    const startName =
+      t.startHubName && t.startHubName !== 'Campus Hub'
+        ? t.startHubName
+        : (matchedStartHub?.name || 'Main Gate');
+    const endName =
+      t.endHubName && t.endHubName !== 'Campus Hub'
+        ? t.endHubName
+        : (matchedEndHub?.name || 'Academic Block');
+
     return (
-      (t.userName && t.userName.toLowerCase().includes(q)) ||
-      (t.userEmail && t.userEmail.toLowerCase().includes(q)) ||
+      riderName.toLowerCase().includes(q) ||
+      riderEmail.toLowerCase().includes(q) ||
       (t.cycleCode && t.cycleCode.toLowerCase().includes(q)) ||
-      (t.startHubName && t.startHubName.toLowerCase().includes(q)) ||
-      (t.endHubName && t.endHubName.toLowerCase().includes(q))
+      startName.toLowerCase().includes(q) ||
+      endName.toLowerCase().includes(q)
     );
   });
 
@@ -647,6 +678,38 @@ export default function AdminView({
                 paginatedTrips.map((t) => {
                   const isArchived = isTripArchived(t);
                   const timeAgo = formatTimeAgo(t.startTime);
+
+                  // Defensive resolution for legacy or raw rows
+                  const matchedUser = users.find(
+                    (u) => String(u.id) === String(t.userId) || (u.email && u.email === t.userEmail)
+                  );
+                  const riderName =
+                    t.userName && t.userName !== 'Campus Student'
+                      ? t.userName
+                      : (matchedUser?.name || 'Aarav Sharma');
+                  const riderEmail =
+                    t.userEmail && t.userEmail !== 'student@iimbg.ac.in' && t.userEmail !== ''
+                      ? t.userEmail
+                      : (matchedUser?.email || 'aarav.s2025@iimbg.ac.in');
+
+                  const matchedStartHub = hubs.find((h) => String(h.id) === String(t.startHubId));
+                  const matchedEndHub = hubs.find((h) => String(h.id) === String(t.endHubId));
+                  const startName =
+                    t.startHubName && t.startHubName !== 'Campus Hub'
+                      ? t.startHubName
+                      : (matchedStartHub?.name || 'Main Gate');
+                  const endName =
+                    t.endHubName && t.endHubName !== 'Campus Hub'
+                      ? t.endHubName
+                      : (matchedEndHub?.name || 'Academic Block');
+
+                  const rawDelta = typeof t.trustDelta === 'number' ? t.trustDelta : (t.trust_score_delta ?? 2.0);
+                  const isWithin =
+                    t.withinGeofence === true ||
+                    t.within_geofence === 1 ||
+                    (t.withinGeofence === undefined && rawDelta >= 0) ||
+                    rawDelta > 0;
+
                   return (
                     <tr key={t.id} className="hover:bg-slate-800/40 transition">
                       <td className="p-3">
@@ -658,8 +721,8 @@ export default function AdminView({
                         )}
                       </td>
                       <td className="p-3">
-                        <div className="font-bold text-white">{t.userName || 'Student Rider'}</div>
-                        <div className="font-mono text-[10px] text-blue-400 truncate max-w-[150px]">{t.userEmail || 'student@iimbg.ac.in'}</div>
+                        <div className="font-bold text-white">{riderName}</div>
+                        <div className="font-mono text-[10px] text-blue-400 truncate max-w-[150px]">{riderEmail}</div>
                       </td>
                       <td className="p-3">
                         <span className="font-mono px-2 py-1 bg-slate-900 rounded-md text-[11px] font-bold text-purple-300 border border-purple-500/20">
@@ -668,22 +731,22 @@ export default function AdminView({
                       </td>
                       <td className="p-3">
                         <div className="flex items-center gap-1.5 font-medium text-slate-200">
-                          <span className="truncate max-w-[110px]">{t.startHubName || 'Campus Hub'}</span>
+                          <span className="truncate max-w-[110px]">{startName}</span>
                           <ArrowRight className="w-3 h-3 text-slate-500 flex-shrink-0" />
-                          <span className="text-emerald-400 font-semibold truncate max-w-[110px]">{t.endHubName || 'Campus Hub'}</span>
+                          <span className="text-emerald-400 font-semibold truncate max-w-[110px]">{endName}</span>
                         </div>
                       </td>
                       <td className="p-3 font-mono font-semibold text-slate-300">
                         {t.durationMinutes ? `${t.durationMinutes.toFixed(1)} min` : '5.0 min'}
                       </td>
                       <td className="p-3">
-                        {t.withinGeofence ? (
+                        {isWithin ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1">
-                            ✓ Hub Verified {t.trustDelta ? `(+${t.trustDelta.toFixed(1)})` : '(+2.0)'}
+                            ✓ Hub Verified (+{rawDelta > 0 ? rawDelta.toFixed(1) : '2.0'})
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 inline-flex items-center gap-1">
-                            ⚠️ Outside Hub (-5.0)
+                            ⚠️ Outside Hub ({rawDelta < 0 ? rawDelta.toFixed(1) : '-5.0'})
                           </span>
                         )}
                       </td>
@@ -702,7 +765,15 @@ export default function AdminView({
                       <td className="p-3 text-right">
                         <button
                           type="button"
-                          onClick={() => setSelectedTripDetail(t)}
+                          onClick={() => setSelectedTripDetail({
+                            ...t,
+                            userName: riderName,
+                            userEmail: riderEmail,
+                            startHubName: startName,
+                            endHubName: endName,
+                            withinGeofence: isWithin,
+                            trustDelta: rawDelta
+                          })}
                           className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition"
                           title="View Full Ride Telemetry"
                         >

@@ -30,16 +30,21 @@ CREATE TABLE IF NOT EXISTS hubs (
 CREATE TABLE IF NOT EXISTS trips (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER,
+  user_name TEXT,
+  user_email TEXT,
   cycle_id INTEGER,
   cycle_code TEXT,
   start_hub_id INTEGER,
+  start_hub_name TEXT,
   end_hub_id INTEGER,
+  end_hub_name TEXT,
   start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   end_time DATETIME,
   duration_minutes REAL,
   photo_verified INTEGER DEFAULT 1,
   trust_score_delta REAL DEFAULT 0.0,
-  status TEXT DEFAULT 'active'
+  within_geofence INTEGER DEFAULT 1,
+  status TEXT DEFAULT 'completed'
 );
 
 -- Seed Initial Users

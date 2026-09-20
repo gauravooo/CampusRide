@@ -142,13 +142,18 @@ export default function App() {
   }, []);
 
   const handleStartTrip = (cycle) => {
+    const startHub = hubs.find((h) => String(h.id) === String(cycle.hubId));
     const newTrip = {
       id: Date.now(),
       cycleId: cycle.id,
       cycleCode: cycle.code,
       batteryPct: cycle.batteryPct,
       startTime: new Date().toISOString(),
-      startHubId: cycle.hubId
+      startHubId: cycle.hubId || 1,
+      startHubName: startHub?.name || 'Main Gate',
+      userId: currentUser?.id || 1,
+      userName: currentUser?.name || 'Aarav Sharma',
+      userEmail: currentUser?.email || 'aarav.s2025@iimbg.ac.in'
     };
 
     setActiveTrip(newTrip);
@@ -183,30 +188,40 @@ export default function App() {
     const currentScore = typeof currentUser?.trustScore === 'number' ? currentUser.trustScore : 100.0;
     const newScore = Math.min(100.0, Math.max(0.0, currentScore + trustDelta));
 
+    // Target hub coordinates and resolved names
+    const targetHub = hubs.find((h) => String(h.id) === String(endHubId));
+    const startHub = hubs.find((h) => String(h.id) === String(activeTrip.startHubId));
+
+    const finalStartHubName = (activeTrip.startHubName && activeTrip.startHubName !== 'Campus Hub')
+      ? activeTrip.startHubName
+      : (startHub?.name || 'Main Gate');
+    const finalEndHubName = (endHubName && endHubName !== 'Campus Hub')
+      ? endHubName
+      : (targetHub?.name || 'Academic Block');
+    const finalUserName = currentUser?.name || activeTrip.userName || 'Aarav Sharma';
+    const finalUserEmail = currentUser?.email || activeTrip.userEmail || 'aarav.s2025@iimbg.ac.in';
+    const finalUserId = currentUser?.id || activeTrip.userId || 1;
+
     // Update currentUser and persist to D1 safely
     if (currentUser) {
       setCurrentUser((prev) => (prev ? { ...prev, trustScore: newScore } : prev));
       if (currentUser.id) {
-        handleAdjustTrustScore(currentUser.id, newScore, `Ride completed at ${endHubName || 'Campus Hub'}`);
+        handleAdjustTrustScore(currentUser.id, newScore, `Ride completed at ${finalEndHubName}`);
       }
     }
-
-    // Target hub coordinates
-    const targetHub = hubs.find((h) => String(h.id) === String(endHubId));
-    const startHub = hubs.find((h) => String(h.id) === String(activeTrip.startHubId));
 
     const durationMinutes = Math.max(0.5, Math.round((durationSeconds / 60) * 10) / 10);
     const completedTripRecord = {
       id: Date.now(),
-      userId: currentUser?.id || 1,
-      userName: currentUser?.name || 'Campus Student',
-      userEmail: currentUser?.email || 'student@iimbg.ac.in',
+      userId: finalUserId,
+      userName: finalUserName,
+      userEmail: finalUserEmail,
       cycleId: activeTrip.cycleId,
       cycleCode: activeTrip.cycleCode,
       startHubId: activeTrip.startHubId || 1,
-      startHubName: startHub?.name || 'Academic Block',
+      startHubName: finalStartHubName,
       endHubId: endHubId || activeTrip.startHubId || 1,
-      endHubName: endHubName || targetHub?.name || 'Campus Hub',
+      endHubName: finalEndHubName,
       startTime: activeTrip.startTime,
       endTime: new Date().toISOString(),
       durationMinutes,

@@ -187,46 +187,120 @@ export const api = {
 
   // 3. Rides, Telemetry & Two-Month Archival
   async getTrips() {
+    // 1. Read existing cached trips from localStorage to preserve full metadata
+    let localCache = [];
+    const cached = localStorage.getItem('campus_trips_cache');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          localCache = parsed;
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fetch remote trips from D1
+    let remoteData = null;
     try {
       const res = await fetch('/api/trips');
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          const normalized = data.map((t) => ({
-            id: t.id,
-            userId: t.user_id || t.userId,
-            userName: t.user_name || t.userName || 'Campus Student',
-            userEmail: t.user_email || t.userEmail || '',
-            cycleId: t.cycle_id || t.cycleId,
-            cycleCode: t.cycle_code || t.cycleCode || 'BG-CYCLE-001',
-            startHubId: t.start_hub_id || t.startHubId,
-            startHubName: t.start_hub_name || t.startHubName || 'Campus Hub',
-            endHubId: t.end_hub_id || t.endHubId,
-            endHubName: t.end_hub_name || t.endHubName || 'Campus Hub',
-            startTime: t.start_time || t.startTime,
-            endTime: t.end_time || t.endTime,
-            durationMinutes: parseFloat(t.duration_minutes || t.durationMinutes) || 5.0,
-            photoVerified: Boolean(t.photo_verified ?? t.photoVerified),
-            trustDelta: parseFloat(t.trust_score_delta ?? t.trustDelta) || 0.0,
-            withinGeofence: Boolean(t.within_geofence ?? t.withinGeofence),
-            status: t.status || 'completed'
-          }));
-          localStorage.setItem('campus_trips_cache', JSON.stringify(normalized));
-          return normalized;
+          remoteData = data;
         }
       }
     } catch (e) {
       console.warn('[API] Using local cached trips fallback:', e.message);
     }
 
-    const cached = localStorage.getItem('campus_trips_cache');
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
+    // If no remote data, use local cache or fallback seed
+    if (!remoteData || remoteData.length === 0) {
+      return localCache.length > 0 ? localCache : generateInitialTrips();
     }
-    return generateInitialTrips();
+
+    // 3. Normalize remote data, enriching each record from localCache, INITIAL_USERS, and CAMPUS_HUBS
+    const normalized = remoteData.map((t) => {
+      const tId = String(t.id);
+      const cachedMatch = localCache.find(
+        (c) =>
+          String(c.id) === tId ||
+          (c.cycleCode === (t.cycle_code || t.cycleCode) &&
+            Math.abs(new Date(c.startTime).getTime() - new Date(t.start_time || t.startTime).getTime()) < 5000)
+      );
+
+      const userId = t.user_id || t.userId || cachedMatch?.userId || 1;
+      const matchedUser = INITIAL_USERS.find((u) => String(u.id) === String(userId));
+      const startHubId = t.start_hub_id || t.startHubId || cachedMatch?.startHubId || 1;
+      const endHubId = t.end_hub_id || t.endHubId || cachedMatch?.endHubId || 2;
+      const matchedStartHub = CAMPUS_HUBS.find((h) => String(h.id) === String(startHubId));
+      const matchedEndHub = CAMPUS_HUBS.find((h) => String(h.id) === String(endHubId));
+
+      const rawTrustDelta = t.trust_score_delta ?? t.trustDelta;
+      const trustDelta = typeof rawTrustDelta === 'number'
+        ? rawTrustDelta
+        : (typeof cachedMatch?.trustDelta === 'number' ? cachedMatch.trustDelta : 2.0);
+
+      const withinGeofence =
+        (t.within_geofence !== undefined && t.within_geofence !== null)
+          ? Boolean(t.within_geofence)
+          : (t.withinGeofence !== undefined && t.withinGeofence !== null
+              ? Boolean(t.withinGeofence)
+              : (cachedMatch?.withinGeofence !== undefined
+                  ? Boolean(cachedMatch.withinGeofence)
+                  : trustDelta >= 0));
+
+      const rawUserName = t.user_name || t.userName;
+      const userName =
+        (rawUserName && rawUserName !== 'Campus Student')
+          ? rawUserName
+          : (cachedMatch?.userName || matchedUser?.name || 'Aarav Sharma');
+
+      const rawUserEmail = t.user_email || t.userEmail;
+      const userEmail =
+        (rawUserEmail && rawUserEmail !== 'student@iimbg.ac.in' && rawUserEmail !== '')
+          ? rawUserEmail
+          : (cachedMatch?.userEmail || matchedUser?.email || 'aarav.s2025@iimbg.ac.in');
+
+      const rawStartHub = t.start_hub_name || t.startHubName;
+      const startHubName =
+        (rawStartHub && rawStartHub !== 'Campus Hub')
+          ? rawStartHub
+          : (cachedMatch?.startHubName || matchedStartHub?.name || 'Main Gate');
+
+      const rawEndHub = t.end_hub_name || t.endHubName;
+      const endHubName =
+        (rawEndHub && rawEndHub !== 'Campus Hub')
+          ? rawEndHub
+          : (cachedMatch?.endHubName || matchedEndHub?.name || 'Academic Block');
+
+      return {
+        id: t.id || cachedMatch?.id || Date.now(),
+        userId,
+        userName,
+        userEmail,
+        cycleId: t.cycle_id || t.cycleId || cachedMatch?.cycleId || 1,
+        cycleCode: t.cycle_code || t.cycleCode || cachedMatch?.cycleCode || 'BG-CYCLE-001',
+        startHubId,
+        startHubName,
+        endHubId,
+        endHubName,
+        startTime: t.start_time || t.startTime || cachedMatch?.startTime || new Date().toISOString(),
+        endTime: t.end_time || t.endTime || cachedMatch?.endTime || new Date().toISOString(),
+        durationMinutes: parseFloat(t.duration_minutes || t.durationMinutes || cachedMatch?.durationMinutes) || 5.0,
+        photoVerified: Boolean(t.photo_verified ?? t.photoVerified ?? cachedMatch?.photoVerified ?? true),
+        trustDelta,
+        withinGeofence,
+        status: t.status || cachedMatch?.status || 'completed'
+      };
+    });
+
+    // Also include any local-only trips that haven't synced to remote yet
+    const remoteIds = new Set(normalized.map((n) => String(n.id)));
+    const localOnly = localCache.filter((l) => !remoteIds.has(String(l.id)));
+    const combined = [...localOnly, ...normalized];
+
+    localStorage.setItem('campus_trips_cache', JSON.stringify(combined));
+    return combined;
   },
 
   async saveTrip(trip) {
@@ -248,24 +322,40 @@ export const api = {
     const normalizedNew = {
       id: savedTrip?.id || trip.id || Date.now(),
       userId: trip.userId || trip.user_id || 1,
-      userName: trip.userName || trip.user_name || 'Campus Student',
-      userEmail: trip.userEmail || trip.user_email || '',
+      userName: trip.userName || trip.user_name || 'Aarav Sharma',
+      userEmail: trip.userEmail || trip.user_email || 'aarav.s2025@iimbg.ac.in',
       cycleId: trip.cycleId || trip.cycle_id || 1,
       cycleCode: trip.cycleCode || trip.cycle_code || 'BG-CYCLE-001',
       startHubId: trip.startHubId || trip.start_hub_id || 1,
-      startHubName: trip.startHubName || trip.start_hub_name || 'Campus Hub',
-      endHubId: trip.endHubId || trip.end_hub_id || 1,
-      endHubName: trip.endHubName || trip.end_hub_name || 'Campus Hub',
+      startHubName: trip.startHubName || trip.start_hub_name || 'Main Gate',
+      endHubId: trip.endHubId || trip.end_hub_id || 2,
+      endHubName: trip.endHubName || trip.end_hub_name || 'Academic Block',
       startTime: trip.startTime || trip.start_time || new Date().toISOString(),
       endTime: trip.endTime || trip.end_time || new Date().toISOString(),
       durationMinutes: parseFloat(trip.durationMinutes || trip.duration_minutes) || 5.0,
       photoVerified: Boolean(trip.photoVerified ?? trip.photo_verified),
-      trustDelta: parseFloat(trip.trustDelta ?? trip.trust_score_delta) || 0.0,
-      withinGeofence: Boolean(trip.withinGeofence ?? trip.within_geofence),
+      trustDelta: typeof trip.trustDelta === 'number'
+        ? trip.trustDelta
+        : (typeof trip.trustScoreDelta === 'number' ? trip.trustScoreDelta : (trip.withinGeofence ? 2.0 : -5.0)),
+      withinGeofence: trip.withinGeofence !== undefined
+        ? Boolean(trip.withinGeofence)
+        : (parseFloat(trip.trustDelta ?? trip.trustScoreDelta) >= 0),
       status: trip.status || 'completed'
     };
 
-    const updated = [normalizedNew, ...current];
+    // Deduplicate so exact same trip is not duplicated in state
+    const filtered = current.filter((t) => {
+      if (String(t.id) === String(normalizedNew.id)) return false;
+      if (
+        t.cycleCode === normalizedNew.cycleCode &&
+        Math.abs(new Date(t.startTime).getTime() - new Date(normalizedNew.startTime).getTime()) < 5000
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    const updated = [normalizedNew, ...filtered];
     localStorage.setItem('campus_trips_cache', JSON.stringify(updated));
     return updated;
   }
