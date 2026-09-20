@@ -2,40 +2,59 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { Navigation, Maximize2, Minimize2, Layers, Tag, Compass } from 'lucide-react';
 
-// Official IIM Bodh Gaya Campus Geographic Boundary Coordinates
-const IIMBG_CAMPUS_BOUNDS = L.latLngBounds(
-  [24.6890, 84.9790], // South-West limit
-  [24.7035, 84.9955]  // North-East limit
-);
-const CAMPUS_CENTER = [24.6961, 84.9869];
-
-// Campus Boundary Polygon (119-acre campus perimeter)
+// Official OpenStreetMap IIM Bodh Gaya Campus Boundary (osm_id: 1530871991)
 const IIMBG_CAMPUS_POLYGON = [
-  [24.6998, 84.9845],
-  [24.6998, 84.9925],
-  [24.6925, 84.9925],
-  [24.6925, 84.9845]
+  [24.6865, 84.9628],
+  [24.6865, 84.9698],
+  [24.6773, 84.9698],
+  [24.6773, 84.9628]
 ];
 
-// High-Legibility Campus Facility Landmarks (fills in all missing building/road labels)
-const CAMPUS_LANDMARKS = [
-  { id: 'lm-lib', name: "Central Library (Gyanodaya)", icon: "📚", lat: 24.6969, lng: 84.9870, desc: "24/7 Digital Library & Reading Rooms" },
-  { id: 'lm-adm', name: "Administrative Block", icon: "🏢", lat: 24.6974, lng: 84.9862, desc: "Director's Office & Academic Affairs" },
-  { id: 'lm-hlth', name: "Campus Health Centre", icon: "🏥", lat: 24.6960, lng: 84.9855, desc: "24x7 First Aid & Medical Dispensary" },
-  { id: 'lm-crkt', name: "Cricket & Athletics Ground", icon: "🏏", lat: 24.6936, lng: 84.9860, desc: "Floodlit Sports Ground & Running Track" },
-  { id: 'lm-oat', name: "Open Air Amphitheatre", icon: "🎭", lat: 24.6950, lng: 84.9873, desc: "Cultural Center & Festival Venue" },
-  { id: 'lm-fac', name: "Faculty & Staff Housing", icon: "🏡", lat: 24.6982, lng: 84.9910, desc: "Faculty Housing Enclave" },
-  { id: 'lm-g2', name: "North Gate 2 (Service)", icon: "🛡️", lat: 24.6990, lng: 84.9880, desc: "Security Check & Service Entry" },
-  { id: 'lm-rd', name: "Ashok Marg (Campus Spine)", icon: "🛣️", lat: 24.6980, lng: 84.9848, desc: "Main Campus Boulevard" }
-];
+// Helper to compute bounds dynamically from admin-configured hubs
+const getDynamicBounds = (hubsList) => {
+  if (!hubsList || hubsList.length === 0) {
+    return L.latLngBounds([24.6760, 84.9610], [24.6880, 84.9720]);
+  }
+  const lats = hubsList.map((h) => parseFloat(h.lat)).filter((v) => !isNaN(v) && v !== 0);
+  const lngs = hubsList.map((h) => parseFloat(h.lng)).filter((v) => !isNaN(v) && v !== 0);
+  if (lats.length === 0 || lngs.length === 0) {
+    return L.latLngBounds([24.6760, 84.9610], [24.6880, 84.9720]);
+  }
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
 
-const getHubIcon = (code = '') => {
-  if (code.includes('MG')) return '🚪';
-  if (code.includes('AB')) return '🏛️';
-  if (code.includes('MS')) return '🍽️';
-  if (code.includes('SC')) return '🏸';
-  if (code.includes('HSTL')) return '🏨';
-  if (code.includes('H1') || code.includes('H3') || code.includes('SB') || code.includes('GH') || code.includes('AH')) return '🏠';
+  // Add 30% breathing padding around outer hubs
+  const latPad = Math.max((maxLat - minLat) * 0.35, 0.0025);
+  const lngPad = Math.max((maxLng - minLng) * 0.35, 0.0030);
+
+  return L.latLngBounds(
+    [minLat - latPad, minLng - lngPad],
+    [maxLat + latPad, maxLng + lngPad]
+  );
+};
+
+// Helper to compute geographic center of all hubs
+const getDynamicCenter = (hubsList) => {
+  if (!hubsList || hubsList.length === 0) return [24.6818, 84.9663];
+  const lats = hubsList.map((h) => parseFloat(h.lat)).filter((v) => !isNaN(v) && v !== 0);
+  const lngs = hubsList.map((h) => parseFloat(h.lng)).filter((v) => !isNaN(v) && v !== 0);
+  if (lats.length === 0 || lngs.length === 0) return [24.6818, 84.9663];
+  return [
+    (Math.min(...lats) + Math.max(...lats)) / 2,
+    (Math.min(...lngs) + Math.max(...lngs)) / 2
+  ];
+};
+
+const getHubIcon = (code = '', name = '') => {
+  const text = (code + ' ' + name).toLowerCase();
+  if (text.includes('mg') || text.includes('gate') || text.includes('entrance')) return '🚪';
+  if (text.includes('ab') || text.includes('academic') || text.includes('lecture') || text.includes('library')) return '🏛️';
+  if (text.includes('ms') || text.includes('mess') || text.includes('annapurna') || text.includes('dining')) return '🍽️';
+  if (text.includes('sc') || text.includes('sport') || text.includes('udaan') || text.includes('gym')) return '🏸';
+  if (text.includes('h9') || text.includes('hstl') || text.includes('executive')) return '🏨';
+  if (text.includes('hostel') || text.includes('tilak') || text.includes('attri') || text.includes('azad') || text.includes('patel') || text.includes('siang') || text.includes('gargi') || text.includes('aryabhatta')) return '🏠';
   return '📍';
 };
 
@@ -49,7 +68,7 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
   const [mapStyle, setMapStyle] = useState(() => {
     return localStorage.getItem('campus_map_style') || 'streets';
   });
-  const [showLandmarks, setShowLandmarks] = useState(() => {
+  const [showLabels, setShowLabels] = useState(() => {
     const saved = localStorage.getItem('campus_map_landmarks');
     return saved !== null ? saved === 'true' : true;
   });
@@ -73,14 +92,14 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
     const cartoApiKey = import.meta.env.VITE_CARTO_API_KEY || 'cb1_3rjr_1_44d8c30ca60ac913e3f7a9ee';
 
     if (style === 'streets') {
-      // 1. OpenStreetMap Standard - Full Road Names, Streets, Ashok Road & Local Labels
+      // 1. OpenStreetMap Standard - Full Road Names, Gaya-Dobhi-Road & Campus Labels
       const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }).addTo(map);
       tileLayersRef.current.push(osm);
     } else if (style === 'satellite') {
-      // 2. Esri World Imagery (Real High-Res Aerial Satellite View)
+      // 2. Esri World Imagery (High-Resolution Satellite Aerial)
       const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 19,
         attribution: '&copy; Esri, Maxar'
@@ -102,18 +121,21 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
     }
   };
 
-  // 1. Initialize Map Instance Once
+  // 1. Initialize Leaflet Map Instance
   useEffect(() => {
     if (!mapRef.current) return;
 
     if (!leafletMap.current) {
+      const initialCenter = getDynamicCenter(hubs);
+      const initialBounds = getDynamicBounds(hubs);
+
       const map = L.map(mapRef.current, {
-        center: CAMPUS_CENTER,
+        center: initialCenter,
         zoom: 16.5,
         minZoom: 15.0,
         maxZoom: 19,
-        maxBounds: IIMBG_CAMPUS_BOUNDS,
-        maxBoundsViscosity: 0.9,
+        maxBounds: initialBounds,
+        maxBoundsViscosity: 0.8,
         zoomControl: false,
         attributionControl: false
       });
@@ -123,6 +145,9 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
       leafletMap.current = map;
       layerGroup.current = L.layerGroup().addTo(map);
       updateTileLayers(mapStyle);
+
+      // Fit view nicely to current hubs
+      map.fitBounds(initialBounds, { padding: [25, 25], maxZoom: 17 });
     }
 
     return () => {
@@ -133,102 +158,91 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
     };
   }, []);
 
-  // 2. Handle Map Style Switch
+  // 2. Adjust bounds dynamically whenever admin updates hubs
+  useEffect(() => {
+    if (!leafletMap.current || hubs.length === 0) return;
+    const dynamicBounds = getDynamicBounds(hubs);
+    leafletMap.current.setMaxBounds(dynamicBounds);
+  }, [hubs]);
+
+  // 3. Handle Map Style Switch
   useEffect(() => {
     updateTileLayers(mapStyle);
     localStorage.setItem('campus_map_style', mapStyle);
   }, [mapStyle]);
 
-  // 3. Invalidate Size on Expand
+  // 4. Invalidate Size on Expand
   useEffect(() => {
     const timer = setTimeout(() => {
       if (leafletMap.current) {
         leafletMap.current.invalidateSize();
+        const bounds = getDynamicBounds(hubs);
+        leafletMap.current.fitBounds(bounds, { padding: [25, 25], maxZoom: 17 });
       }
     }, 150);
     return () => clearTimeout(timer);
   }, [isExpanded]);
 
-  // 4. Render Layers (Hubs, Landmarks, Boundary, Cycles, User)
+  // 5. Render Layers (Campus Boundary, Designated Hubs, Available Cycles, User Location)
   useEffect(() => {
     if (!leafletMap.current || !layerGroup.current) return;
 
     const layers = layerGroup.current;
     layers.clearLayers();
 
-    // A. Campus Boundary Outline
+    // A. IIMBG Campus Boundary Outline
     const campusBorder = L.polygon(IIMBG_CAMPUS_POLYGON, {
       color: '#3b82f6',
       weight: 2,
       dashArray: '6, 8',
       fillColor: '#3b82f6',
-      fillOpacity: 0.02
+      fillOpacity: 0.03
     });
     layers.addLayer(campusBorder);
 
-    // B. Campus Facility Landmarks (If enabled)
-    if (showLandmarks) {
-      CAMPUS_LANDMARKS.forEach((lm) => {
-        const lmHtml = `
-          <div class="px-2 py-0.5 bg-slate-950/90 text-slate-100 rounded-lg border border-slate-700/80 shadow-xl flex items-center gap-1 font-sans whitespace-nowrap cursor-pointer text-[10px] font-bold backdrop-blur-md hover:scale-105 transition pointer-events-auto">
-            <span>${lm.icon}</span>
-            <span>${lm.name}</span>
-          </div>
-        `;
-        const lmIcon = L.divIcon({
-          html: lmHtml,
-          className: 'custom-landmark-marker',
-          iconSize: [120, 22],
-          iconAnchor: [60, 11]
-        });
-
-        const marker = L.marker([lm.lat, lm.lng], { icon: lmIcon, zIndexOffset: 800 });
-        marker.bindPopup(`
-          <div style="padding:6px; min-width:160px; color:#ffffff; font-family:sans-serif;">
-            <h4 style="margin:0; font-size:13px; font-weight:800; color:#38bdf8;">${lm.icon} ${lm.name}</h4>
-            <p style="margin:4px 0 0 0; font-size:11px; color:#94a3b8;">${lm.desc}</p>
-          </div>
-        `);
-        layers.addLayer(marker);
-      });
-    }
-
-    // C. Render Designated Hub Stations (Prominent Floating Badges with Z-Index 1500)
+    // B. Designated Hubs (With Dynamic Admin Coordinates)
     hubs.forEach((h) => {
+      if (!h.lat || !h.lng) return;
+
       const availCount = cycles.filter((c) => c.hubId === h.id && c.status === 'available').length;
       const color = availCount > 3 ? '#10b981' : availCount > 0 ? '#3b82f6' : '#ef4444';
-      const icon = getHubIcon(h.code);
+      const icon = getHubIcon(h.code, h.name);
 
-      // Geofence Circle
+      // Geofence Circle with true radius
       const circle = L.circle([h.lat, h.lng], {
-        radius: h.radius_meters || 60,
+        radius: h.radius_meters || 25,
         color: color,
         fillColor: color,
-        fillOpacity: 0.12,
+        fillOpacity: 0.15,
         weight: 1.5,
         dashArray: '4, 6'
       });
       layers.addLayer(circle);
 
-      // Station Marker Pill (High-Contrast, Legible on any basemap)
-      const hubHtml = `
-        <div class="group px-2.5 py-1 bg-slate-950/95 text-white rounded-full border-2 shadow-2xl flex items-center gap-1.5 font-sans whitespace-nowrap cursor-pointer hover:scale-105 transition-all text-xs font-black backdrop-blur-md" style="border-color: ${color};">
-          <span class="text-xs">${icon}</span>
-          <span class="tracking-tight text-white font-extrabold">${h.name}</span>
-          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded-full font-black shadow-inner" style="background-color: ${color}25; color: ${color};">
-            ${availCount} 🚲
-          </span>
-        </div>
-      `;
+      // Station Marker Pill (High Z-Index 1500: Always visible and floating on top)
+      const hubHtml = showLabels
+        ? `
+          <div class="group px-2.5 py-1 bg-slate-950/95 text-white rounded-full border-2 shadow-2xl flex items-center gap-1.5 font-sans whitespace-nowrap cursor-pointer hover:scale-105 transition-all text-xs font-black backdrop-blur-md" style="border-color: ${color};">
+            <span class="text-xs">${icon}</span>
+            <span class="tracking-tight text-white font-extrabold">${h.name}</span>
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded-full font-black shadow-inner" style="background-color: ${color}25; color: ${color};">
+              ${availCount} 🚲
+            </span>
+          </div>
+        `
+        : `
+          <div class="w-6 h-6 rounded-full bg-slate-950/95 text-white border-2 flex items-center justify-center font-bold shadow-xl text-xs hover:scale-110 transition cursor-pointer" style="border-color: ${color};">
+            <span>${icon}</span>
+          </div>
+        `;
 
       const hubIcon = L.divIcon({
         html: hubHtml,
         className: 'custom-hub-marker',
-        iconSize: [145, 30],
-        iconAnchor: [72, 15]
+        iconSize: showLabels ? [145, 30] : [24, 24],
+        iconAnchor: showLabels ? [72, 15] : [12, 12]
       });
 
-      // High zIndexOffset ensures Hub labels NEVER get covered by cycle dots
       const hubMarker = L.marker([h.lat, h.lng], { icon: hubIcon, zIndexOffset: 1500 });
       hubMarker.bindPopup(`
         <div style="padding:6px; min-width:175px; color:#ffffff; font-family:sans-serif;">
@@ -236,9 +250,9 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
             <span style="font-size:16px;">${icon}</span>
             <h4 style="margin:0; font-size:14px; font-weight:800; color:#60a5fa;">${h.name}</h4>
           </div>
-          <p style="margin:2px 0 6px 0; font-size:11px; color:#94a3b8;">${h.description || 'Campus designated pickup & drop hub.'}</p>
+          <p style="margin:2px 0 6px 0; font-size:11px; color:#94a3b8;">${h.description || 'Designated campus pickup & drop hub.'}</p>
           <div style="display:flex; justify-content:space-between; align-items:center; padding-top:4px; border-top:1px solid rgba(255,255,255,0.1); font-size:12px;">
-            <span style="color:${color}; font-weight:700;">🚲 ${availCount} / ${h.capacity || 30} Available</span>
+            <span style="color:${color}; font-weight:700;">🚲 ${availCount} / ${h.capacity || 25} Available</span>
             <span style="color:#94a3b8; font-size:10px; font-family:monospace;">${h.code}</span>
           </div>
         </div>
@@ -246,10 +260,12 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
       layers.addLayer(hubMarker);
     });
 
-    // D. Available Cycles (Subtle micro-pins to avoid cluttering hubs)
+    // C. Available Cycles (Neat micro-pins with zIndex 500 under hubs)
     if (showCycles) {
-      const availableCycles = cycles.filter((c) => c.status === 'available').slice(0, 35);
+      const availableCycles = cycles.filter((c) => c.status === 'available').slice(0, 40);
       availableCycles.forEach((c) => {
+        if (!c.lat || !c.lng) return;
+
         const cycleHtml = `
           <div class="w-4 h-4 rounded-full bg-blue-600/90 text-white flex items-center justify-center font-bold shadow-md border border-white/90 hover:scale-125 transition cursor-pointer text-[9px]">
             🚲
@@ -279,8 +295,8 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
       });
     }
 
-    // E. User Location Marker
-    if (userLocation) {
+    // D. User Location Marker
+    if (userLocation && userLocation.lat && userLocation.lng) {
       const userHtml = `
         <div class="relative flex items-center justify-center">
           <div class="w-4 h-4 rounded-full bg-emerald-400 border-2 border-white shadow-[0_0_12px_#10b981] animate-ping absolute"></div>
@@ -301,11 +317,13 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
       `);
       layers.addLayer(userMarker);
     }
-  }, [hubs, cycles, userLocation, showLandmarks, showCycles]);
+  }, [hubs, cycles, userLocation, showLabels, showCycles]);
 
   const handleRecenterCampus = () => {
     if (leafletMap.current) {
-      leafletMap.current.setView(CAMPUS_CENTER, 16.5, { animate: true });
+      const dynamicCenter = getDynamicCenter(hubs);
+      const dynamicBounds = getDynamicBounds(hubs);
+      leafletMap.current.fitBounds(dynamicBounds, { padding: [25, 25], maxZoom: 17 });
     }
   };
 
@@ -354,18 +372,18 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
           </button>
         </div>
 
-        {/* Action Buttons: Landmarks Toggle, Cycles Toggle, Recenter, Fullscreen */}
+        {/* Action Buttons: Labels Toggle, Cycles Toggle, Recenter, Fullscreen */}
         <div className="pointer-events-auto flex items-center gap-1.5 bg-slate-950/90 backdrop-blur-md rounded-xl p-1 border border-white/15 shadow-xl">
           <button
             onClick={() => {
-              const val = !showLandmarks;
-              setShowLandmarks(val);
+              const val = !showLabels;
+              setShowLabels(val);
               localStorage.setItem('campus_map_landmarks', String(val));
             }}
             className={`px-2 py-1 text-[10px] font-bold rounded-lg transition flex items-center gap-1 ${
-              showLandmarks ? 'bg-slate-800 text-sky-300' : 'text-slate-500 hover:text-slate-300'
+              showLabels ? 'bg-slate-800 text-sky-300' : 'text-slate-500 hover:text-slate-300'
             }`}
-            title="Toggle Campus Facility Landmarks"
+            title="Toggle Hub Name Labels"
           >
             <Tag className="w-3 h-3" />
             <span className="hidden sm:inline">Labels</span>

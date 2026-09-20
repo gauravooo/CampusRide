@@ -1,16 +1,17 @@
 // Initial Seed Data for IIM Bodh Gaya CampusRide
+// Synchronized with Admin-Configured Designated Campus Hubs (Cloudflare D1)
 
 export const CAMPUS_HUBS = [
-  { id: 1, name: "Main Gate", code: "HUB-MG", lat: 24.6985, lng: 84.9855, capacity: 30, description: "Primary campus entrance & visitor check.", icon: "DoorOpen" },
-  { id: 2, name: "Academic Block", code: "HUB-AB", lat: 24.6965, lng: 84.9875, capacity: 40, description: "Main lecture halls & library.", icon: "BookOpen" },
-  { id: 3, name: "Mess / Annapurna", code: "HUB-MS", lat: 24.6955, lng: 84.9865, capacity: 30, description: "Central dining hall & cafeteria.", icon: "Utensils" },
-  { id: 4, name: "Sports Complex / Udaan", code: "HUB-SC", lat: 24.6945, lng: 84.9880, capacity: 25, description: "Gymnasium & badminton courts.", icon: "Activity" },
-  { id: 5, name: "H1 & H2 Hostel", code: "HUB-H1H2", lat: 24.6970, lng: 84.9890, capacity: 25, description: "Residence blocks H1 and H2.", icon: "Home" },
-  { id: 6, name: "H3 & H4 Hostel", code: "HUB-H3H4", lat: 24.6960, lng: 84.9895, capacity: 25, description: "Residence blocks H3 and H4.", icon: "Home" },
-  { id: 7, name: "Hostel Block", code: "HUB-HSTL", lat: 24.6950, lng: 84.9900, capacity: 20, description: "Executive residence.", icon: "Building" },
-  { id: 8, name: "Siang + Bose Hostel", code: "HUB-SB", lat: 24.6940, lng: 84.9890, capacity: 20, description: "Siang and Bose student accommodation.", icon: "Home" },
-  { id: 9, name: "Gargi Hostel", code: "HUB-GH", lat: 24.6935, lng: 84.9875, capacity: 20, description: "Gargi women's hostel precinct.", icon: "Home" },
-  { id: 10, name: "Aryabhatta Hostel", code: "HUB-AH", lat: 24.6975, lng: 84.9880, capacity: 20, description: "Post-graduate student residence.", icon: "Home" }
+  { id: 1, name: "Main Gate", code: "HUB-MG", lat: 24.680029, lng: 84.963476, radius_meters: 25, capacity: 30, description: "Primary campus entrance & visitor check.", icon: "DoorOpen" },
+  { id: 2, name: "Academic Block", code: "HUB-AB", lat: 24.680167, lng: 84.965313, radius_meters: 25, capacity: 100, description: "Main lecture halls & library.", icon: "BookOpen" },
+  { id: 3, name: "Mess / Annapurna", code: "HUB-MS", lat: 24.680614, lng: 84.967928, radius_meters: 25, capacity: 50, description: "Central dining hall & cafeteria.", icon: "Utensils" },
+  { id: 4, name: "Sports Complex / Udaan", code: "HUB-SC", lat: 24.680335, lng: 84.966544, radius_meters: 25, capacity: 25, description: "Gymnasium & badminton courts.", icon: "Activity" },
+  { id: 5, name: "Tilak & Attri Hostel", code: "HUB-TA", lat: 24.680524, lng: 84.968459, radius_meters: 25, capacity: 25, description: "Hostels Tilak and Attri.", icon: "Home" },
+  { id: 6, name: "Azad & Patel Hostel", code: "HUB-AP", lat: 24.681314, lng: 84.968851, radius_meters: 25, capacity: 25, description: "Residence blocks Azad and Patel.", icon: "Home" },
+  { id: 7, name: "H9 Hostel", code: "HUB-HSTL", lat: 24.685926, lng: 84.968140, radius_meters: 25, capacity: 20, description: "Hostel H9 residence.", icon: "Building" },
+  { id: 8, name: "Siang Hostel", code: "HUB-SB", lat: 24.683914, lng: 84.968275, radius_meters: 25, capacity: 80, description: "Siang student accommodation.", icon: "Home" },
+  { id: 9, name: "Gargi Hostel", code: "HUB-GH", lat: 24.682639, lng: 84.968186, radius_meters: 25, capacity: 20, description: "Gargi hostel precinct.", icon: "Home" },
+  { id: 10, name: "Aryabhatta Hostel", code: "HUB-AH", lat: 24.680674, lng: 84.967161, radius_meters: 25, capacity: 20, description: "Girls student residence.", icon: "Home" }
 ];
 
 export const generateInitialCycles = () => {
@@ -38,8 +39,8 @@ export const generateInitialCycles = () => {
         lockPin: pin,
         bleMac,
         hubId: hub.id,
-        lat: hub.lat + (Math.random() - 0.5) * 0.0004,
-        lng: hub.lng + (Math.random() - 0.5) * 0.0004,
+        lat: hub.lat + (Math.random() - 0.5) * 0.0003,
+        lng: hub.lng + (Math.random() - 0.5) * 0.0003,
         totalTrips: 10 + (counter * 3) % 75
       });
       counter++;

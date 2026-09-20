@@ -39,7 +39,7 @@ export default function App() {
   });
 
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [userLocation, setUserLocation] = useState({ lat: 24.6961, lng: 84.9869 });
+  const [userLocation, setUserLocation] = useState({ lat: 24.6808, lng: 84.9665 });
 
   // Load persistent data from Cloudflare D1 SQL / API
   useEffect(() => {
@@ -57,6 +57,23 @@ export default function App() {
       const remoteHubs = await api.getHubs();
       if (remoteHubs && remoteHubs.length > 0) {
         setHubs(remoteHubs);
+        // Ensure cycles in state/cache are synced to real hub coordinates
+        setCycles((prevCycles) => {
+          return prevCycles.map((c) => {
+            const h = remoteHubs.find((hub) => hub.id === c.hubId);
+            if (h) {
+              const diff = Math.abs(c.lat - h.lat) + Math.abs(c.lng - h.lng);
+              if (diff > 0.003) {
+                return {
+                  ...c,
+                  lat: h.lat + (Math.random() - 0.5) * 0.0003,
+                  lng: h.lng + (Math.random() - 0.5) * 0.0003
+                };
+              }
+            }
+            return c;
+          });
+        });
       }
     }
     loadData();
