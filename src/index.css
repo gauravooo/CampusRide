@@ -101,7 +101,7 @@ body {
 }
 
 /* Custom Leaflet Marker Styling */
-.custom-hub-marker, .custom-cycle-marker, .custom-user-marker {
+.custom-hub-marker, .custom-cycle-marker, .custom-user-marker, .custom-landmark-marker, .custom-boundary-marker {
   background: transparent !important;
   border: none !important;
 }
