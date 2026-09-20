@@ -17,7 +17,7 @@ export function haversineDistance(lat1, lng1, lat2, lng2) {
 }
 
 export function findNearestHub(userLat, userLng, hubs) {
-  if (!hubs || hubs.length === 0) return { nearestHub: null, distanceMeters: Infinity };
+  if (!Array.isArray(hubs) || hubs.length === 0) return { nearestHub: null, distanceMeters: Infinity };
 
   let nearestHub = null;
   let minDistance = Infinity;
@@ -34,12 +34,15 @@ export function findNearestHub(userLat, userLng, hubs) {
 }
 
 export function predictHubDemands(hubs, cycles) {
+  if (!Array.isArray(hubs) || hubs.length === 0) return [];
+  const safeCycles = Array.isArray(cycles) ? cycles : [];
+
   const now = new Date();
   const hour = now.getHours();
   const isWeekend = now.getDay() === 0 || now.getDay() === 6;
 
   return hubs.map((hub) => {
-    const currentCount = cycles.filter(
+    const currentCount = safeCycles.filter(
       (c) => c.hubId === hub.id && c.status === 'available'
     ).length;
 

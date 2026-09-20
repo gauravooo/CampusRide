@@ -104,7 +104,7 @@ export const api = {
             code: h.code,
             lat: parseFloat(h.lat),
             lng: parseFloat(h.lng),
-            radius_meters: parseFloat(h.radius_meters) || 60.0,
+            radius_meters: parseFloat(h.radius_meters) || 25.0,
             capacity: parseInt(h.capacity) || 25,
             description: h.description || '',
             icon: h.icon || 'MapPin'
@@ -118,11 +118,19 @@ export const api = {
     }
 
     const cached = localStorage.getItem('campus_hubs_cache');
-    return cached ? JSON.parse(cached) : CAMPUS_HUBS;
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return CAMPUS_HUBS;
   },
 
   async saveHub(hub) {
     const isNew = !hub.id;
+    let savedHub = null;
+
     try {
       const res = await fetch('/api/hubs', {
         method: isNew ? 'POST' : 'PUT',
@@ -130,24 +138,38 @@ export const api = {
         body: JSON.stringify(hub)
       });
       if (res.ok) {
-        const saved = await res.json();
-        return saved;
+        savedHub = await res.json();
       }
     } catch (e) {
       console.warn('[API] Hub saved locally:', e.message);
     }
 
-    // Local fallback update
+    // Merge saved hub into the full list of hubs
     const current = await this.getHubs();
+    const effectiveHub = savedHub && savedHub.id ? savedHub : hub;
     let updated;
+
     if (isNew) {
-      const newHub = { ...hub, id: Date.now() };
-      updated = [...current, newHub];
+      const newId = effectiveHub.id || Date.now();
+      updated = [...current, { ...effectiveHub, id: newId }];
     } else {
-      updated = current.map((h) => (h.id === hub.id ? { ...h, ...hub } : h));
+      updated = current.map((h) => (h.id === effectiveHub.id ? { ...h, ...effectiveHub } : h));
     }
-    localStorage.setItem('campus_hubs_cache', JSON.stringify(updated));
-    return updated;
+
+    const normalized = updated.map((h) => ({
+      id: h.id,
+      name: h.name,
+      code: h.code,
+      lat: parseFloat(h.lat),
+      lng: parseFloat(h.lng),
+      radius_meters: parseFloat(h.radius_meters) || 25.0,
+      capacity: parseInt(h.capacity) || 25,
+      description: h.description || '',
+      icon: h.icon || 'MapPin'
+    }));
+
+    localStorage.setItem('campus_hubs_cache', JSON.stringify(normalized));
+    return normalized;
   },
 
   async deleteHub(hubId) {

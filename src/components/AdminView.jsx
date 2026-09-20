@@ -42,7 +42,9 @@ export default function AdminView({
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
 
-  const rebalanceForecasts = predictHubDemands(hubs, cycles);
+  const safeHubs = Array.isArray(hubs) ? hubs : [];
+
+  const rebalanceForecasts = predictHubDemands(safeHubs, cycles);
 
   const totalCycles = cycles.length;
   const availableCycles = cycles.filter((c) => c.status === 'available').length;
@@ -89,10 +91,10 @@ export default function AdminView({
     setIsNewHub(true);
     setHubFormData({
       name: '',
-      code: `HUB-NEW${hubs.length + 1}`,
-      lat: 24.6961,
-      lng: 84.9869,
-      radius_meters: 60,
+      code: `HUB-NEW${safeHubs.length + 1}`,
+      lat: 24.6818,
+      lng: 84.9663,
+      radius_meters: 25,
       capacity: 25,
       description: 'Designated campus pickup & drop station'
     });
@@ -105,10 +107,10 @@ export default function AdminView({
       id: hub.id,
       name: hub.name,
       code: hub.code,
-      lat: hub.lat,
-      lng: hub.lng,
-      radius_meters: hub.radius_meters || 60,
-      capacity: hub.capacity || 25,
+      lat: parseFloat(hub.lat) || 24.6818,
+      lng: parseFloat(hub.lng) || 84.9663,
+      radius_meters: parseFloat(hub.radius_meters) || 25,
+      capacity: parseInt(hub.capacity) || 25,
       description: hub.description || ''
     });
     setEditingHub(true);
@@ -116,7 +118,14 @@ export default function AdminView({
 
   const handleSaveHubForm = (e) => {
     e.preventDefault();
-    onSaveHub(hubFormData);
+    if (!hubFormData.name.trim()) return;
+    onSaveHub({
+      ...hubFormData,
+      lat: parseFloat(hubFormData.lat) || 24.6818,
+      lng: parseFloat(hubFormData.lng) || 84.9663,
+      radius_meters: parseFloat(hubFormData.radius_meters) || 25,
+      capacity: parseInt(hubFormData.capacity) || 25
+    });
     setEditingHub(null);
   };
 
@@ -228,7 +237,7 @@ export default function AdminView({
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="glass-card p-4 rounded-2xl border-white/10">
           <p className="text-xs text-slate-400 font-semibold">Campus Hubs</p>
-          <p className="text-2xl font-black text-white mt-1">{hubs.length}</p>
+          <p className="text-2xl font-black text-white mt-1">{safeHubs.length}</p>
           <p className="text-[10px] text-blue-400 mt-1 font-mono">D1 SQL Geofenced</p>
         </div>
         <div className="glass-card p-4 rounded-2xl border-white/10">
@@ -261,9 +270,9 @@ export default function AdminView({
               <Map className="w-5 h-5 text-blue-400" />
               <span>Live Campus Fleet Telemetry Map</span>
             </h2>
-            <span className="text-xs text-slate-400">{hubs.length} Designated Hubs • {totalCycles} Cycles</span>
+            <span className="text-xs text-slate-400">{safeHubs.length} Designated Hubs • {totalCycles} Cycles</span>
           </div>
-          <CampusMap hubs={hubs} cycles={cycles} height="h-96" />
+          <CampusMap hubs={safeHubs} cycles={cycles} height="h-96" />
         </div>
 
         {/* AI Rebalancing Demand Forecaster */}
@@ -344,8 +353,10 @@ export default function AdminView({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {hubs.map((h) => {
+              {safeHubs.map((h) => {
                 const avail = cycles.filter((c) => c.hubId === h.id && c.status === 'available').length;
+                const latVal = (parseFloat(h.lat) || 0).toFixed(4);
+                const lngVal = (parseFloat(h.lng) || 0).toFixed(4);
                 return (
                   <tr key={h.id} className="hover:bg-slate-800/40 transition">
                     <td className="p-3 font-bold text-white">
@@ -360,11 +371,11 @@ export default function AdminView({
                     </td>
                     <td className="p-3 font-mono text-blue-400">{h.code}</td>
                     <td className="p-3 font-mono text-[11px] text-slate-300">
-                      {h.lat.toFixed(4)}°, {h.lng.toFixed(4)}°
+                      {latVal}°, {lngVal}°
                     </td>
                     <td className="p-3">
                       <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                        {h.radius_meters || 60}m tolerance
+                        {h.radius_meters || 25}m tolerance
                       </span>
                     </td>
                     <td className="p-3 text-slate-400">{h.capacity}</td>

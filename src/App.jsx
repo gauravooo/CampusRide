@@ -17,7 +17,13 @@ export default function App() {
 
   const [hubs, setHubs] = useState(() => {
     const saved = localStorage.getItem('campus_hubs_cache');
-    return saved ? JSON.parse(saved) : CAMPUS_HUBS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return CAMPUS_HUBS;
   });
 
   const [users, setUsers] = useState([
@@ -190,13 +196,31 @@ export default function App() {
   };
 
   const handleSaveHub = async (hubData) => {
-    const updatedHubs = await api.saveHub(hubData);
-    setHubs(updatedHubs);
+    try {
+      const updatedHubs = await api.saveHub(hubData);
+      if (Array.isArray(updatedHubs)) {
+        setHubs(updatedHubs);
+      } else {
+        const fresh = await api.getHubs();
+        if (Array.isArray(fresh)) setHubs(fresh);
+      }
+    } catch (err) {
+      console.error('Failed to save hub:', err);
+    }
   };
 
   const handleDeleteHub = async (hubId) => {
-    const updatedHubs = await api.deleteHub(hubId);
-    setHubs(updatedHubs);
+    try {
+      const updatedHubs = await api.deleteHub(hubId);
+      if (Array.isArray(updatedHubs)) {
+        setHubs(updatedHubs);
+      } else {
+        const fresh = await api.getHubs();
+        if (Array.isArray(fresh)) setHubs(fresh);
+      }
+    } catch (err) {
+      console.error('Failed to delete hub:', err);
+    }
   };
 
   const handleLogin = async (userData) => {
