@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, QrCode, Camera, Focus, Lock, Bluetooth, CheckCircle, Aperture, X } from 'lucide-react';
+import { MapPin, QrCode, Camera, Lock, Bluetooth, CheckCircle, Smartphone, UserCheck, Bike, Search } from 'lucide-react';
 import CampusMap from './CampusMap';
+import QRScannerModal from './QRScannerModal';
+import ParkingPhotoModal from './ParkingPhotoModal';
 import { findNearestHub } from '../utils/geo';
 
 export default function StudentView({
@@ -12,15 +14,15 @@ export default function StudentView({
   onEndTrip,
   userLocation
 }) {
+  const [mobileTab, setMobileTab] = useState('ride'); // 'ride', 'map', 'profile'
   const [showQRModal, setShowQRModal] = useState(false);
   const [showLockModal, setShowLockModal] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [selectedCycle, setSelectedCycle] = useState(null);
   const [showPIN, setShowPIN] = useState(false);
   const [bleConnecting, setBleConnecting] = useState(false);
-  const [manualQRInput, setManualQRInput] = useState('');
   const [tripSeconds, setTripSeconds] = useState(0);
-  const [photoCaptured, setPhotoCaptured] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Active Trip Stopwatch
   useEffect(() => {
@@ -46,13 +48,13 @@ export default function StudentView({
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const handleScanCode = (qrPayload) => {
+  const handleScanSuccess = (qrPayload) => {
     const cycle = cycles.find(
       (c) => c.qrCode.toLowerCase() === qrPayload.toLowerCase() || c.code.toLowerCase() === qrPayload.toLowerCase()
     );
 
     if (!cycle) {
-      alert(`Cycle with QR payload '${qrPayload}' not found.`);
+      alert(`Cycle with code / QR '${qrPayload}' not found.`);
       return;
     }
 
@@ -91,23 +93,22 @@ export default function StudentView({
     }, 1200);
   };
 
-  const handleSubmitEndTrip = () => {
-    onEndTrip(photoCaptured);
-    setShowEndModal(false);
-    setPhotoCaptured(false);
-  };
-
   const { nearestHub, distanceMeters } = selectedCycle
     ? findNearestHub(userLocation.lat, userLocation.lng, hubs)
     : { nearestHub: null, distanceMeters: 0 };
 
   const withinGeofence = distanceMeters <= (nearestHub?.radius_meters || 60);
 
+  const filteredCycles = cycles
+    .filter((c) => c.status === 'available')
+    .filter((c) => c.code.toLowerCase().includes(searchQuery.toLowerCase()) || c.qrCode.toLowerCase().includes(searchQuery.toLowerCase()))
+    .slice(0, 30);
+
   return (
-    <div className="space-y-4">
-      {/* Active Ride Banner */}
+    <div className="max-w-md mx-auto space-y-4 pb-20">
+      {/* Active Ride Card */}
       {activeTrip && (
-        <div className="glass-card p-4 border-emerald-500/40 bg-emerald-950/20">
+        <div className="glass-card p-4 border-emerald-500/40 bg-emerald-950/30">
           <div className="flex items-center justify-between mb-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold animate-pulse">
               <span className="w-2 h-2 rounded-full bg-emerald-400"></span> ACTIVE RIDE
@@ -136,135 +137,218 @@ export default function StudentView({
         </div>
       )}
 
-      {/* Student Trust Score Card */}
-      <div className="glass-card p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-xs text-slate-400 font-medium">Student Trust Score</p>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-black text-blue-400">{currentUser?.trustScore.toFixed(1) || '100.0'}</span>
-              <span className="text-xs text-slate-400">/ 100</span>
+      {/* Main Tab Content */}
+      {mobileTab === 'ride' && (
+        <div className="space-y-4">
+          {/* Student Trust Score */}
+          <div className="glass-card p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-xs text-slate-400 font-medium">Student Trust Score</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-black text-blue-400">
+                    {currentUser?.trustScore.toFixed(1) || '100.0'}
+                  </span>
+                  <span className="text-xs text-slate-400">/ 100</span>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                @iimbg.ac.in Verified
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.max(0, currentUser?.trustScore || 100))}%` }}
+              />
             </div>
           </div>
-          <div className="text-right">
-            <span className="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              @iimbg.ac.in Verified
-            </span>
-          </div>
-        </div>
-        <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
-          <div
-            className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full transition-all duration-500"
-            style={{ width: `${Math.min(100, Math.max(0, currentUser?.trustScore || 100))}%` }}
-          />
-        </div>
-      </div>
 
-      {/* Interactive Campus Hubs Map */}
-      <div className="glass-card p-3">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
-            <MapPin className="w-4 h-4 text-blue-400" />
-            <span>Campus Hubs Map</span>
-          </h2>
-          <span className="text-xs text-slate-400">10 Hubs • 200 Fleet</span>
-        </div>
-        <CampusMap hubs={hubs} cycles={cycles} height="h-56" />
-      </div>
+          {/* Large Web Camera QR Scanner Card */}
+          <div className="glass-card p-5 text-center space-y-3">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+              <QrCode className="w-9 h-9" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Unlock Campus Cycle</h3>
+              <p className="text-xs text-slate-400">Point your phone camera at cycle QR code to unlock</p>
+            </div>
 
-      {/* Unlock & QR Scanner Card */}
-      <div className="glass-card p-4 text-center">
-        <div className="w-14 h-14 mx-auto rounded-2xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30 mb-3">
-          <QrCode className="w-8 h-8" />
-        </div>
-        <h3 className="text-base font-bold text-white mb-1">Ready to Ride?</h3>
-        <p className="text-xs text-slate-400 mb-4">Scan QR code or select any of the 200 campus cycles below.</p>
-
-        <div className="space-y-3">
-          <button
-            onClick={() => setShowQRModal(true)}
-            className="w-full btn-primary text-sm py-3 flex items-center justify-center gap-2"
-          >
-            <Camera className="w-4 h-4" />
-            <span>Scan Cycle QR Code</span>
-          </button>
-
-          {/* Quick Cycle Dropdown for instant selection */}
-          <div className="text-left pt-1">
-            <label className="text-xs text-slate-400 font-semibold block mb-1">Quick Select Cycle (200 Fleet):</label>
-            <select
-              onChange={(e) => e.target.value && handleScanCode(e.target.value)}
-              className="w-full glass-input text-xs"
-              defaultValue=""
+            <button
+              onClick={() => setShowQRModal(true)}
+              className="w-full btn-primary text-sm py-3.5 flex items-center justify-center gap-2 font-bold shadow-lg shadow-blue-600/30"
             >
-              <option value="" disabled>-- Select Cycle QR Code --</option>
-              {cycles.filter((c) => c.status === 'available').slice(0, 50).map((c) => {
+              <Camera className="w-5 h-5" />
+              <span>Open Web Camera QR Scanner</span>
+            </button>
+          </div>
+
+          {/* Fleet Quick Selector */}
+          <div className="glass-card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Bike className="w-4 h-4 text-blue-400" />
+                <span>Quick Select from 200 Fleet:</span>
+              </h4>
+              <span className="text-[10px] text-slate-400">{cycles.filter(c => c.status === 'available').length} Available</span>
+            </div>
+
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search cycle code e.g. BG-CYCLE-001"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full glass-input text-xs pl-9"
+              />
+            </div>
+
+            <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+              {filteredCycles.map((c) => {
                 const h = hubs.find((h) => h.id === c.hubId);
                 return (
-                  <option key={c.id} value={c.qrCode}>
-                    {c.code} • {h?.name || 'Campus'} ({c.batteryPct}% Battery)
-                  </option>
+                  <button
+                    key={c.id}
+                    onClick={() => handleScanSuccess(c.qrCode)}
+                    className="w-full p-2 bg-slate-800/40 hover:bg-slate-700/60 rounded-xl border border-slate-700/50 flex items-center justify-between text-xs text-left transition"
+                  >
+                    <div>
+                      <strong className="text-blue-400 block">{c.code}</strong>
+                      <span className="text-[10px] text-slate-400">{h?.name || 'Campus'}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-emerald-400 font-bold block">{c.batteryPct}% Battery</span>
+                      <span className="text-[10px] text-slate-500 font-mono">PIN: {c.lockPin}</span>
+                    </div>
+                  </button>
                 );
               })}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* QR Scanner Modal */}
-      {showQRModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card w-full max-w-sm p-4 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-700/50 pb-2">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <QrCode className="w-4 h-4 text-blue-400" />
-                <span>Web Camera QR Scanner</span>
-              </h3>
-              <button onClick={() => setShowQRModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="relative w-full h-48 bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex flex-col items-center justify-center text-center p-3">
-              <div className="w-32 h-32 border-2 border-dashed border-blue-400 rounded-xl flex items-center justify-center animate-pulse">
-                <Focus className="w-12 h-12 text-blue-400/70" />
-              </div>
-              <p className="text-xs text-slate-400 mt-2">Align QR Code inside frame</p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs text-slate-400 block font-medium">Or enter QR code payload manually:</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="e.g. IIMBG-RIDE-001"
-                  value={manualQRInput}
-                  onChange={(e) => setManualQRInput(e.target.value)}
-                  className="w-full glass-input text-xs"
-                />
-                <button
-                  onClick={() => manualQRInput && handleScanCode(manualQRInput)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold text-white"
-                >
-                  Scan
-                </button>
-              </div>
             </div>
           </div>
         </div>
       )}
 
+      {mobileTab === 'map' && (
+        <div className="glass-card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+              <MapPin className="w-4 h-4 text-blue-400" />
+              <span>Campus Hubs & Fleet Map</span>
+            </h3>
+            <span className="text-xs text-slate-400">10 Hubs • IIM Bodh Gaya</span>
+          </div>
+          <CampusMap hubs={hubs} cycles={cycles} height="h-80" />
+
+          {/* Hub list */}
+          <div className="space-y-2 pt-2">
+            {hubs.map((h) => {
+              const avail = cycles.filter((c) => c.hubId === h.id && c.status === 'available').length;
+              return (
+                <div key={h.id} className="p-2.5 bg-slate-800/40 rounded-xl border border-slate-700/50 flex items-center justify-between text-xs">
+                  <div>
+                    <strong className="text-white block">{h.name}</strong>
+                    <span className="text-[10px] text-slate-400">{h.description}</span>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${avail > 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                    {avail} / {h.capacity} Cycles
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {mobileTab === 'profile' && (
+        <div className="glass-card p-5 space-y-4 text-center">
+          <div className="w-16 h-16 mx-auto rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-xl font-bold">
+            {currentUser?.name ? currentUser.name.charAt(0) : 'S'}
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white">{currentUser?.name || 'Campus Student'}</h3>
+            <p className="text-xs text-blue-400 font-mono">{currentUser?.email || 'student@iimbg.ac.in'}</p>
+          </div>
+
+          <div className="p-3 bg-slate-900/60 rounded-xl space-y-2 text-xs border border-slate-800 text-left">
+            <div className="flex justify-between">
+              <span className="text-slate-400">Campus Verification:</span>
+              <span className="text-emerald-400 font-bold">Passed (@iimbg.ac.in)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Geofence Compliance:</span>
+              <span className="text-blue-400 font-bold">98.5% Compliant</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Total Campus Rides:</span>
+              <span className="text-white font-bold">14 Rides Completed</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Mobile Navigation Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 py-2 px-6 flex items-center justify-around">
+        <button
+          onClick={() => setMobileTab('ride')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${mobileTab === 'ride' ? 'text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <Bike className="w-5 h-5" />
+          <span>Ride</span>
+        </button>
+
+        <button
+          onClick={() => setMobileTab('map')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${mobileTab === 'map' ? 'text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <MapPin className="w-5 h-5" />
+          <span>Map</span>
+        </button>
+
+        <button
+          onClick={() => setShowQRModal(true)}
+          className="flex flex-col items-center gap-1 text-[10px] font-bold text-blue-400 -mt-5"
+        >
+          <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/40 border-2 border-slate-900">
+            <Camera className="w-6 h-6" />
+          </div>
+          <span>Scan</span>
+        </button>
+
+        <button
+          onClick={() => setMobileTab('profile')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${mobileTab === 'profile' ? 'text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <UserCheck className="w-5 h-5" />
+          <span>Profile</span>
+        </button>
+      </div>
+
+      {/* Real Web Camera QR Scanner Modal */}
+      <QRScannerModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        onScanSuccess={handleScanSuccess}
+      />
+
+      {/* Real Camera Parking Photo Verification Modal */}
+      <ParkingPhotoModal
+        isOpen={showEndModal}
+        onClose={() => setShowEndModal(false)}
+        onSubmitEndTrip={onEndTrip}
+      />
+
       {/* Dual Lock Modal */}
       {showLockModal && selectedCycle && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card w-full max-w-sm p-5 space-y-4">
+          <div className="glass-card w-full max-w-sm p-5 space-y-4 border-blue-500/30">
             <div className="flex items-center justify-between border-b border-slate-700/50 pb-2">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Lock className="w-5 h-5 text-blue-400" />
                 <span>Dual Lock Unlock Engine</span>
               </h3>
               <button onClick={() => setShowLockModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
+                ✕
               </button>
             </div>
 
@@ -311,54 +395,6 @@ export default function StudentView({
               >
                 <Bluetooth className="w-4 h-4" />
                 <span>{bleConnecting ? 'Transmitting Signal...' : 'Send BLE Unlock Pulse'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* End Trip Modal */}
-      {showEndModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card w-full max-w-sm p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-700/50 pb-2">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Camera className="w-5 h-5 text-emerald-400" />
-                <span>AI Parking Photo Verification</span>
-              </h3>
-              <button onClick={() => setShowEndModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-xs text-slate-300">Take a photo of your parked cycle showing the locked smart lock within the hub boundary.</p>
-
-              <div className="w-full h-44 bg-slate-950 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center p-2">
-                {photoCaptured ? (
-                  <div className="text-emerald-400 flex flex-col items-center gap-1">
-                    <CheckCircle className="w-8 h-8" />
-                    <span className="text-xs font-bold">Lock & Parking Photo Captured</span>
-                    <span className="text-[10px] text-slate-400">YOLO/ONNX Confidence: 96.5%</span>
-                  </div>
-                ) : (
-                  <div className="text-slate-500 flex flex-col items-center gap-1">
-                    <Aperture className="w-8 h-8 text-slate-600" />
-                    <span className="text-xs">No Snapshot Captured</span>
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={() => setPhotoCaptured(true)}
-                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center gap-1.5"
-              >
-                <Aperture className="w-4 h-4 text-emerald-400" />
-                <span>Capture Hub Parking Snapshot</span>
-              </button>
-
-              <button onClick={handleSubmitEndTrip} className="w-full btn-success text-sm py-2.5">
-                Submit & End Ride
               </button>
             </div>
           </div>
