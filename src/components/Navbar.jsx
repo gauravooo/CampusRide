@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Bike, Shield, LogIn, LayoutDashboard, Smartphone, Lock, Sparkles, Navigation } from 'lucide-react';
+import { Bike, Shield, LogIn, LayoutDashboard, Smartphone, Lock, Sparkles, Navigation, ListFilter } from 'lucide-react';
 
-export default function Navbar({ currentUser, activeTab, setActiveTab, onOpenAuth }) {
+export default function Navbar({ currentUser, activeTab, setActiveTab, onOpenAuth, onOpenFleetModal }) {
   const [showAdminPinModal, setShowAdminPinModal] = useState(false);
   const [adminPinInput, setAdminPinInput] = useState('');
   const [pinError, setPinError] = useState('');
@@ -32,42 +32,51 @@ export default function Navbar({ currentUser, activeTab, setActiveTab, onOpenAut
 
   return (
     <>
-      <nav className="sticky top-0 z-50 glass-card mx-2 mt-2 px-4 py-3 flex items-center justify-between border-b border-white/10 rounded-2xl shadow-xl">
+      <nav className="fixed top-3 left-3 right-3 z-40 max-w-7xl mx-auto glass-panel px-4 py-2.5 flex items-center justify-between rounded-full shadow-2xl">
         <div className="flex items-center space-x-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white border border-blue-400/40 shadow-lg shadow-blue-600/30">
-            <Bike className="w-6 h-6" />
+          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white border border-blue-400/40 shadow-lg shadow-blue-600/30">
+            <Bike className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-base font-extrabold tracking-tight text-white leading-tight flex items-center gap-1.5">
+            <h1 className="text-sm font-extrabold tracking-tight text-white leading-tight flex items-center gap-1.5">
               <span>CampusRide</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">PWA</span>
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">PWA</span>
             </h1>
-            <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+            <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
               <Navigation className="w-3 h-3 text-emerald-400" /> IIM Bodh Gaya
             </p>
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
-          {/* Navigation Mode Switcher */}
-          <div className="flex bg-slate-950 p-1 rounded-xl border border-white/10 text-xs font-bold">
+          {/* Fleet Catalog Modal Trigger */}
+          <button
+            onClick={onOpenFleetModal}
+            className="px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-slate-200 rounded-full text-xs font-bold border border-white/10 flex items-center gap-1.5 transition active:scale-95"
+          >
+            <ListFilter className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden sm:inline">Fleet</span>
+          </button>
+
+          {/* Mode Switcher */}
+          <div className="flex bg-slate-950 p-1 rounded-full border border-white/10 text-xs font-bold">
             <button
               onClick={() => handleTabClick('student')}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+              className={`px-3 py-1 rounded-full flex items-center gap-1 transition ${
                 activeTab === 'student' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>Rider App</span>
+              <span className="hidden sm:inline">Rider</span>
             </button>
             <button
               onClick={() => handleTabClick('admin')}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+              className={`px-3 py-1 rounded-full flex items-center gap-1 transition ${
                 activeTab === 'admin' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>Admin Portal</span>
+              <span>Admin</span>
             </button>
           </div>
 
@@ -75,7 +84,7 @@ export default function Navbar({ currentUser, activeTab, setActiveTab, onOpenAut
           {currentUser ? (
             <button
               onClick={onOpenAuth}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-white/10 transition flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full text-xs font-bold border border-white/10 transition flex items-center gap-1.5"
             >
               {currentUser.role === 'admin' && <Shield className="w-3.5 h-3.5 text-purple-400" />}
               <span>{currentUser.name.split(' ')[0]}</span>
@@ -83,7 +92,7 @@ export default function Navbar({ currentUser, activeTab, setActiveTab, onOpenAut
           ) : (
             <button
               onClick={onOpenAuth}
-              className="px-3.5 py-1.5 bg-blue-600/30 text-blue-400 hover:bg-blue-600/50 rounded-xl text-xs font-bold border border-blue-500/30 flex items-center gap-1.5 transition"
+              className="px-3 py-1.5 bg-blue-600/30 text-blue-400 hover:bg-blue-600/50 rounded-full text-xs font-bold border border-blue-500/30 flex items-center gap-1.5 transition"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>Login</span>
@@ -92,10 +101,10 @@ export default function Navbar({ currentUser, activeTab, setActiveTab, onOpenAut
         </div>
       </nav>
 
-      {/* Admin Passcode Modal */}
+      {/* Admin Passcode Protection Modal */}
       {showAdminPinModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="glass-card w-full max-w-sm p-5 space-y-4 border-purple-500/40 rounded-3xl shadow-2xl">
+        <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="glass-card w-full max-w-sm p-5 space-y-4 border-purple-500/40 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-700/50 pb-3">
               <h3 className="text-base font-extrabold text-white flex items-center gap-2">
                 <Lock className="w-5 h-5 text-purple-400" />

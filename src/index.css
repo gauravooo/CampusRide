@@ -3,10 +3,10 @@
 @tailwindcss utilities;
 
 :root {
-  --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-  --accent-emerald: linear-gradient(135deg, #10b981 0%, #047857 100%);
+  --primary-gradient: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #0d9488 100%);
+  --accent-emerald: linear-gradient(135deg, #10b981 0%, #059669 100%);
   --accent-amber: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  --dark-bg: #0f172a;
+  --dark-bg: #090d16;
 }
 
 body {
@@ -16,40 +16,64 @@ body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Glassmorphism Styles */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
 }
 
 .glass-card {
-  background: rgba(30, 41, 59, 0.85);
+  background: rgba(30, 41, 59, 0.8);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  border-radius: 1rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  border-radius: 1.5rem;
 }
 
 .glass-input {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #ffffff;
-  border-radius: 0.5rem;
-  padding: 0.625rem 1rem;
+  border-radius: 1rem;
+  padding: 0.75rem 1rem;
   transition: all 0.2s ease;
 }
 
 .glass-input:focus {
   outline: none;
   border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.btn-hero {
+  background: var(--primary-gradient);
+  color: #ffffff;
+  font-weight: 800;
+  border-radius: 1.25rem;
+  padding: 1rem 1.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.45);
+}
+
+.btn-hero:active {
+  transform: scale(0.97);
 }
 
 .btn-primary {
   background: var(--primary-gradient);
   color: #ffffff;
-  font-weight: 600;
-  border-radius: 0.75rem;
+  font-weight: 700;
+  border-radius: 1rem;
   padding: 0.75rem 1.25rem;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.39);
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
 }
 
 .btn-primary:active {
@@ -59,10 +83,10 @@ body {
 .btn-success {
   background: var(--accent-emerald);
   color: #ffffff;
-  font-weight: 600;
-  border-radius: 0.75rem;
+  font-weight: 700;
+  border-radius: 1rem;
   padding: 0.75rem 1.25rem;
-  box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.39);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
 }
 
 .pulse-ble {
@@ -71,16 +95,34 @@ body {
 
 @keyframes blePulse {
   0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-  70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
+  70% { box-shadow: 0 0 0 16px rgba(59, 130, 246, 0); }
   100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
 }
 
-.leaflet-popup-content-wrapper {
-  background: #1e293b !important;
-  color: #f8fafc !important;
-  border-radius: 0.75rem !important;
-  border: 1px solid rgba(255,255,255,0.1) !important;
+/* Custom Leaflet Marker Styling */
+.custom-hub-marker, .custom-cycle-marker, .custom-user-marker {
+  background: transparent !important;
+  border: none !important;
 }
+
+.leaflet-popup-content-wrapper {
+  background: rgba(15, 23, 42, 0.95) !important;
+  color: #f8fafc !important;
+  border-radius: 1rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
 .leaflet-popup-tip {
-  background: #1e293b !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+}
+
+/* Hide scrollbar for clean horizontal carousel */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

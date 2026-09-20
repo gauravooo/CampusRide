@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { MapPin, QrCode, Camera, Lock, Bluetooth, CheckCircle2, Bike, Search, ShieldCheck, Zap, Navigation, Battery, ChevronRight, Sparkles, Flame, Leaf, ListFilter } from 'lucide-react';
+import { MapPin, QrCode, Camera, Lock, Bluetooth, CheckCircle2, Bike, Search, ShieldCheck, Zap, Navigation, Battery, ChevronRight, Sparkles, Flame, Leaf, ListFilter, X, Crosshair } from 'lucide-react';
 import CampusMap from './CampusMap';
 import QRScannerModal from './QRScannerModal';
 import ParkingPhotoModal from './ParkingPhotoModal';
@@ -13,9 +13,10 @@ export default function StudentView({
   activeTrip,
   onStartTrip,
   onEndTrip,
-  userLocation
+  userLocation,
+  showFleetModal,
+  setShowFleetModal
 }) {
-  const [mobileTab, setMobileTab] = useState('ride'); // 'ride', 'map', 'catalog', 'profile'
   const [showQRModal, setShowQRModal] = useState(false);
   const [showLockModal, setShowLockModal] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
@@ -120,12 +121,21 @@ export default function StudentView({
     );
 
   return (
-    <div className="max-w-xl mx-auto space-y-4 pb-28">
-      {/* Active Ride Card Banner */}
+    <div className="relative w-full h-[calc(100vh-60px)] overflow-hidden">
+      {/* Full-Bleed Interactive Map Background */}
+      <CampusMap
+        hubs={hubs}
+        cycles={cycles}
+        height="h-full"
+        userLocation={userLocation}
+        onSelectCycle={(c) => handleScanSuccess(c.qrCode)}
+      />
+
+      {/* Active Ride Floating Banner (when ride is active) */}
       {activeTrip && (
-        <div className="glass-card p-5 border-emerald-500/50 bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-950 shadow-2xl shadow-emerald-950/50 rounded-3xl space-y-3">
-          <div className="flex items-center justify-between border-b border-emerald-500/20 pb-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30 animate-pulse">
+        <div className="fixed top-20 left-3 right-3 z-30 max-w-lg mx-auto glass-panel p-4 border-emerald-500/50 bg-gradient-to-br from-emerald-950/80 via-slate-900 to-slate-950 shadow-2xl rounded-3xl space-y-3">
+          <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2.5">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-extrabold border border-emerald-500/30 animate-pulse">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> ACTIVE RIDE
             </span>
             <span className="text-2xl font-black text-emerald-400 tracking-wider font-mono">
@@ -134,17 +144,17 @@ export default function StudentView({
           </div>
 
           <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-300">
-            <div className="p-2.5 bg-slate-900/90 rounded-2xl border border-white/5">
+            <div className="p-2 bg-slate-950/80 rounded-2xl border border-white/5">
               <span className="text-slate-400 text-[10px] block font-semibold">Cycle Code</span>
               <strong className="text-white text-sm font-mono">{activeTrip.cycleCode}</strong>
             </div>
-            <div className="p-2.5 bg-slate-900/90 rounded-2xl border border-white/5">
+            <div className="p-2 bg-slate-950/80 rounded-2xl border border-white/5">
               <span className="text-slate-400 text-[10px] block font-semibold flex items-center justify-center gap-1">
                 <Leaf className="w-3 h-3 text-emerald-400" /> CO2 Saved
               </span>
               <strong className="text-emerald-400 text-sm">{Math.round(tripSeconds * 0.15)}g</strong>
             </div>
-            <div className="p-2.5 bg-slate-900/90 rounded-2xl border border-white/5">
+            <div className="p-2 bg-slate-950/80 rounded-2xl border border-white/5">
               <span className="text-slate-400 text-[10px] block font-semibold flex items-center justify-center gap-1">
                 <Flame className="w-3 h-3 text-amber-400" /> Calories
               </span>
@@ -154,107 +164,72 @@ export default function StudentView({
 
           <button
             onClick={() => setShowEndModal(true)}
-            className="w-full btn-success text-sm py-3.5 flex items-center justify-center gap-2 font-extrabold rounded-2xl shadow-xl shadow-emerald-600/30 transition active:scale-95"
+            className="w-full btn-success text-xs py-3 flex items-center justify-center gap-2 font-extrabold rounded-2xl shadow-xl shadow-emerald-600/30 transition active:scale-95"
           >
-            <CheckCircle2 className="w-5 h-5" />
+            <CheckCircle2 className="w-4 h-4" />
             <span>End Ride & Upload Parking Snapshot</span>
           </button>
         </div>
       )}
 
-      {/* Page Tab 1: 🚲 Ride Home */}
-      {mobileTab === 'ride' && (
-        <div className="space-y-4">
-          {/* Hero Scan Card */}
-          <div className="glass-card p-6 rounded-3xl bg-gradient-to-br from-blue-900/40 via-slate-900 to-slate-950 border-blue-500/40 shadow-2xl space-y-4 relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>200 Fleet • 10 Campus Hubs</span>
-              </span>
-              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                <Navigation className="w-3.5 h-3.5" /> IIM Bodh Gaya
-              </span>
-            </div>
+      {/* Floating Bottom Slide-Up Action Sheet (NO BOTTOM BUTTONS) */}
+      {!activeTrip && (
+        <div className="fixed bottom-4 left-3 right-3 z-30 max-w-lg mx-auto glass-panel p-4 rounded-3xl space-y-3.5 shadow-2xl border border-white/15">
+          {/* Sheet Drag Handle */}
+          <div className="w-12 h-1 bg-white/20 rounded-full mx-auto -mt-1"></div>
 
-            <div>
-              <h2 className="text-xl font-black text-white tracking-tight leading-tight">
-                Unlock Any Cycle in Seconds
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Tap scan below to open camera or enter cycle code.
-              </p>
+          {/* High-Impact Scan QR Button */}
+          <button
+            onClick={() => setShowQRModal(true)}
+            className="w-full btn-hero py-4 flex items-center justify-center gap-3 text-base font-black shadow-2xl rounded-2xl group transition active:scale-98"
+          >
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shadow">
+              <Camera className="w-5 h-5 text-white group-hover:scale-110 transition" />
             </div>
-
-            {/* Glowing Scan QR Button */}
-            <button
-              onClick={() => setShowQRModal(true)}
-              className="w-full btn-primary py-4 flex items-center justify-center gap-3 text-base font-extrabold shadow-xl shadow-blue-600/40 rounded-2xl group transition active:scale-98"
-            >
-              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-                <Camera className="w-5 h-5 text-white group-hover:scale-110 transition" />
-              </div>
-              <span>Scan QR Code To Unlock</span>
-            </button>
-          </div>
-
-          {/* Quick Hub Map Preview */}
-          <div className="glass-card p-4 rounded-3xl space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-blue-400" />
-                <span>Live Campus Map</span>
-              </h3>
-              <button onClick={() => setMobileTab('map')} className="text-[11px] font-bold text-blue-400 hover:underline">
-                View Full Map →
-              </button>
-            </div>
-            <CampusMap
-              hubs={hubs}
-              cycles={cycles}
-              height="h-56"
-              userLocation={userLocation}
-              onSelectCycle={(c) => handleScanSuccess(c.qrCode)}
-            />
-          </div>
+            <span>SCAN TO UNLOCK BIKE</span>
+          </button>
 
           {/* Nearby Bikes Carousel */}
-          <div className="glass-card p-4 space-y-3 rounded-3xl">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
                 <Bike className="w-4 h-4 text-blue-400" />
                 <span>Closest Available Bikes ({availableCycles.length})</span>
-              </h4>
-              <button onClick={() => setMobileTab('catalog')} className="text-[11px] text-slate-400 hover:text-white">
-                View All ({availableCycles.length})
+              </span>
+              <button
+                onClick={() => setShowFleetModal(true)}
+                className="text-[11px] font-bold text-blue-400 hover:underline flex items-center gap-1"
+              >
+                <span>All Fleet →</span>
               </button>
             </div>
 
-            <div className="space-y-2">
-              {sortedCyclesWithDistance.slice(0, 5).map((c) => {
+            {/* Horizontal Scrolling Bikes Cards */}
+            <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+              {sortedCyclesWithDistance.slice(0, 10).map((c) => {
                 const h = hubs.find((h) => h.id === c.hubId);
                 return (
                   <div
                     key={c.id}
                     onClick={() => handleScanSuccess(c.qrCode)}
-                    className="p-3 bg-slate-900/80 hover:bg-slate-800 rounded-2xl border border-white/5 flex items-center justify-between cursor-pointer transition group"
+                    className="flex-shrink-0 w-44 p-3 bg-slate-900/90 hover:bg-slate-800 rounded-2xl border border-white/10 space-y-2 cursor-pointer transition group"
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-2xl bg-blue-600/20 flex items-center justify-center text-blue-400 border border-blue-500/30 text-lg group-hover:scale-105 transition">
-                        🚲
-                      </div>
-                      <div>
-                        <strong className="text-sm font-bold text-white block leading-tight">{c.code}</strong>
-                        <span className="text-[10px] text-slate-400">{h?.name || 'Campus Hub'}</span>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <strong className="text-xs font-extrabold text-white font-mono">{c.code}</strong>
+                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                        ⚡ {c.batteryPct}%
+                      </span>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="text-right">
-                        <span className="text-xs font-bold text-emerald-400 block">⚡ {c.batteryPct}%</span>
-                        <span className="text-[10px] text-slate-400 font-mono">{c.distanceMeters}m away</span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition" />
+
+                    <div className="text-[10px] text-slate-400 space-y-0.5">
+                      <p className="truncate text-slate-200 font-semibold">{h?.name || 'Campus Hub'}</p>
+                      <p className="font-mono text-blue-400">{c.distanceMeters}m away</p>
                     </div>
+
+                    <button className="w-full py-1.5 bg-blue-600/30 hover:bg-blue-600 text-blue-300 hover:text-white text-[11px] font-bold rounded-xl border border-blue-500/30 flex items-center justify-center gap-1 transition">
+                      <span>Unlock</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
                   </div>
                 );
               })}
@@ -263,179 +238,80 @@ export default function StudentView({
         </div>
       )}
 
-      {/* Page Tab 2: 🗺️ Campus Hub Map */}
-      {mobileTab === 'map' && (
-        <div className="glass-card p-4 space-y-3 rounded-3xl">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-blue-400" />
-              <span>Campus Geofenced Hubs</span>
-            </h3>
-            <span className="text-xs text-slate-400">10 Station Hubs</span>
-          </div>
-          <CampusMap hubs={hubs} cycles={cycles} height="h-96" userLocation={userLocation} />
-
-          <div className="space-y-2 pt-2">
-            {hubs.map((h) => {
-              const avail = cycles.filter((c) => c.hubId === h.id && c.status === 'available').length;
-              return (
-                <div key={h.id} className="p-3 bg-slate-900/70 rounded-2xl border border-white/5 flex items-center justify-between text-xs">
-                  <div>
-                    <strong className="text-white text-sm block">{h.name}</strong>
-                    <span className="text-[10px] text-slate-400">{h.description}</span>
-                  </div>
-                  <span className={`px-3 py-1 rounded-xl text-[10px] font-extrabold border ${avail > 0 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}`}>
-                    🚲 {avail} / {h.capacity} Free
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Page Tab 3: 📋 Full Fleet Catalog */}
-      {mobileTab === 'catalog' && (
-        <div className="glass-card p-4 space-y-3 rounded-3xl">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <ListFilter className="w-4 h-4 text-blue-400" />
-              <span>Full Fleet Catalog (200 Cycles)</span>
-            </h3>
-            <span className="text-xs font-bold text-emerald-400">{availableCycles.length} Available</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                placeholder="Search code..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full glass-input text-xs pl-8 py-2 rounded-xl"
-              />
+      {/* Full Fleet Catalog Modal (Portal on document.body) */}
+      {showFleetModal && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="glass-card w-full max-w-lg p-5 space-y-4 border-blue-500/40 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                <ListFilter className="w-5 h-5 text-blue-400" />
+                <span>Full Campus Fleet Catalog (200 Cycles)</span>
+              </h3>
+              <button onClick={() => setShowFleetModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <select
-              value={selectedHubFilter}
-              onChange={(e) => setSelectedHubFilter(e.target.value)}
-              className="w-full glass-input text-xs py-2 rounded-xl"
-            >
-              <option value="all">All 10 Hubs</option>
-              {hubs.map((h) => (
-                <option key={h.id} value={h.id}>{h.name}</option>
-              ))}
-            </select>
-          </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search code..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full glass-input text-xs pl-8 py-2 rounded-xl"
+                />
+              </div>
 
-          <div className="max-h-[500px] overflow-y-auto space-y-2 pr-1">
-            {filteredCycles.map((c) => {
-              const h = hubs.find((h) => h.id === c.hubId);
-              return (
-                <div
-                  key={c.id}
-                  onClick={() => handleScanSuccess(c.qrCode)}
-                  className="p-3 bg-slate-900/80 hover:bg-slate-800 rounded-2xl border border-white/5 flex items-center justify-between cursor-pointer transition group"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-xl bg-blue-600/20 flex items-center justify-center text-blue-400 border border-blue-500/30 font-bold text-xs">
-                      🚲
+              <select
+                value={selectedHubFilter}
+                onChange={(e) => setSelectedHubFilter(e.target.value)}
+                className="w-full glass-input text-xs py-2 rounded-xl"
+              >
+                <option value="all">All 10 Hubs</option>
+                {hubs.map((h) => (
+                  <option key={h.id} value={h.id}>{h.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="overflow-y-auto space-y-2 pr-1 flex-1">
+              {filteredCycles.map((c) => {
+                const h = hubs.find((h) => h.id === c.hubId);
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => {
+                      setShowFleetModal(false);
+                      handleScanSuccess(c.qrCode);
+                    }}
+                    className="p-3 bg-slate-900/80 hover:bg-slate-800 rounded-2xl border border-white/5 flex items-center justify-between cursor-pointer transition group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-600/20 flex items-center justify-center text-blue-400 border border-blue-500/30 font-bold text-xs">
+                        🚲
+                      </div>
+                      <div>
+                        <strong className="text-xs font-bold text-white block">{c.code}</strong>
+                        <span className="text-[10px] text-slate-400">{h?.name || 'Campus Hub'}</span>
+                      </div>
                     </div>
-                    <div>
-                      <strong className="text-xs font-bold text-white block">{c.code}</strong>
-                      <span className="text-[10px] text-slate-400">{h?.name || 'Campus Hub'}</span>
+                    <div className="flex items-center space-x-2">
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-emerald-400 block">⚡ {c.batteryPct}%</span>
+                        <span className="text-[10px] text-slate-400 font-mono">PIN: {c.lockPin}</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition" />
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="text-right">
-                      <span className="text-xs font-bold text-emerald-400 block">⚡ {c.batteryPct}%</span>
-                      <span className="text-[10px] text-slate-400 font-mono">PIN: {c.lockPin}</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition" />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-
-      {/* Page Tab 4: 👤 Profile & Trust Tier */}
-      {mobileTab === 'profile' && (
-        <div className="glass-card p-6 space-y-4 text-center rounded-3xl">
-          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 border-2 border-blue-400 flex items-center justify-center text-white text-2xl font-black shadow-xl shadow-blue-600/30">
-            {currentUser?.name ? currentUser.name.charAt(0) : 'S'}
-          </div>
-          <div>
-            <h3 className="text-lg font-extrabold text-white">{currentUser?.name || 'Campus Student'}</h3>
-            <p className="text-xs text-blue-400 font-mono mt-0.5">{currentUser?.email || 'student@iimbg.ac.in'}</p>
-          </div>
-
-          <div className="p-4 bg-slate-950/70 rounded-2xl space-y-3 text-xs border border-white/10 text-left">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Campus Verification:</span>
-              <span className="text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                <CheckCircle2 className="w-3.5 h-3.5" /> @iimbg.ac.in Verified
-              </span>
-            </div>
-            <div className="flex justify-between items-center border-t border-slate-800 pt-2.5">
-              <span className="text-slate-400">Trust Score Rating:</span>
-              <span className="text-blue-400 font-black text-sm">{currentUser?.trustScore.toFixed(1) || '98.5'} / 100</span>
-            </div>
-            <div className="flex justify-between items-center border-t border-slate-800 pt-2.5">
-              <span className="text-slate-400">Total Campus Rides:</span>
-              <span className="text-white font-bold">15 Rides</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Floating Bottom Mobile Navigation Dock */}
-      <div className="fixed bottom-3 left-3 right-3 z-40 max-w-md mx-auto bg-slate-950/90 backdrop-blur-2xl border border-white/10 rounded-3xl py-2 px-5 flex items-center justify-around shadow-2xl">
-        <button
-          onClick={() => setMobileTab('ride')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold transition ${mobileTab === 'ride' ? 'text-blue-400 scale-105' : 'text-slate-400 hover:text-slate-200'}`}
-        >
-          <Bike className="w-5 h-5" />
-          <span>Ride</span>
-        </button>
-
-        <button
-          onClick={() => setMobileTab('map')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold transition ${mobileTab === 'map' ? 'text-blue-400 scale-105' : 'text-slate-400 hover:text-slate-200'}`}
-        >
-          <MapPin className="w-5 h-5" />
-          <span>Map</span>
-        </button>
-
-        {/* Central Floating Camera Trigger */}
-        <button
-          onClick={() => setShowQRModal(true)}
-          className="flex flex-col items-center gap-1 text-[10px] font-bold text-blue-400 -mt-6"
-        >
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center shadow-xl shadow-blue-600/50 border-4 border-slate-900 active:scale-95 transition">
-            <Camera className="w-7 h-7" />
-          </div>
-          <span className="text-white font-extrabold mt-0.5">Scan QR</span>
-        </button>
-
-        <button
-          onClick={() => setMobileTab('catalog')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold transition ${mobileTab === 'catalog' ? 'text-blue-400 scale-105' : 'text-slate-400 hover:text-slate-200'}`}
-        >
-          <ListFilter className="w-5 h-5" />
-          <span>Fleet</span>
-        </button>
-
-        <button
-          onClick={() => setMobileTab('profile')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold transition ${mobileTab === 'profile' ? 'text-blue-400 scale-105' : 'text-slate-400 hover:text-slate-200'}`}
-        >
-          <ShieldCheck className="w-5 h-5" />
-          <span>Profile</span>
-        </button>
-      </div>
 
       {/* Web Camera QR Scanner Modal (Portal on document.body) */}
       <QRScannerModal

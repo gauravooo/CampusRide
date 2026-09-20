@@ -26,6 +26,7 @@ export default function App() {
   });
 
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showFleetModal, setShowFleetModal] = useState(false);
   const [userLocation, setUserLocation] = useState({ lat: 24.6961, lng: 84.9869 });
 
   // Save state updates
@@ -77,7 +78,6 @@ export default function App() {
 
     setActiveTrip(newTrip);
 
-    // Update cycle status to in_use
     setCycles((prev) =>
       prev.map((c) => (c.id === cycle.id ? { ...c, status: 'in_use' } : c))
     );
@@ -88,13 +88,11 @@ export default function App() {
 
     const trustDelta = photoVerified ? +2.0 : -5.0;
 
-    // Update User Trust Score
     setCurrentUser((prev) => ({
       ...prev,
       trustScore: Math.min(100.0, Math.max(0.0, prev.trustScore + trustDelta))
     }));
 
-    // Update Cycle status back to available
     setCycles((prev) =>
       prev.map((c) =>
         c.id === activeTrip.cycleId
@@ -118,15 +116,16 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 pb-16">
+    <div className="min-h-screen bg-slate-950 text-slate-100 overflow-hidden relative">
       <Navbar
         currentUser={currentUser}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenAuth={() => setShowAuthModal(true)}
+        onOpenFleetModal={() => setShowFleetModal(true)}
       />
 
-      <main className="max-w-7xl mx-auto px-3 pt-4">
+      <main className="w-full h-screen pt-14">
         {activeTab === 'student' ? (
           <StudentView
             currentUser={currentUser}
@@ -136,14 +135,18 @@ export default function App() {
             onStartTrip={handleStartTrip}
             onEndTrip={handleEndTrip}
             userLocation={userLocation}
+            showFleetModal={showFleetModal}
+            setShowFleetModal={setShowFleetModal}
           />
         ) : (
-          <AdminView
-            hubs={hubs}
-            cycles={cycles}
-            activeTrip={activeTrip}
-            users={usersList}
-          />
+          <div className="max-w-7xl mx-auto px-4 pt-4 overflow-y-auto max-h-[calc(100vh-80px)]">
+            <AdminView
+              hubs={hubs}
+              cycles={cycles}
+              activeTrip={activeTrip}
+              users={usersList}
+            />
+          </div>
         )}
       </main>
 
