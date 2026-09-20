@@ -1,4 +1,4 @@
-const CACHE_NAME = 'campusride-v2.0';
+const CACHE_NAME = 'v3-force-live';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -12,39 +12,19 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Network-first strategy for HTML pages, cache-first for static assets
+// Always fetch fresh network requests for all assets, fallback to cache only if offline
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  const url = new URL(event.request.url);
-
-  // Network-first for main document HTML to ensure live updates
-  if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('.html')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok && response.type === 'basic') {
           const copy = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
-    return;
-  }
-
-  // Cache-first with network fallback for static JS/CSS assets
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return (
-        cached ||
-        fetch(event.request).then((response) => {
-          if (response.ok && response.type === 'basic') {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          }
-          return response;
-        })
-      );
-    })
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
