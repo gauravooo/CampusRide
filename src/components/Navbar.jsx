@@ -129,7 +129,7 @@ export default function Navbar({ currentUser, onOpenAuth, onLogout }) {
             className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold border border-blue-500/30 flex items-center gap-1.5 transition shadow"
           >
             <LogIn className="w-3.5 h-3.5" />
-            <span>SSO Login</span>
+            <span>Campus Login</span>
           </button>
         )}
       </div>

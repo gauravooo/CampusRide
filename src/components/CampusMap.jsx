@@ -16,9 +16,9 @@ export default function CampusMap({ hubs, cycles, height = "h-56", onSelectCycle
         attributionControl: false
       }).setView([24.6961, 84.9869], 16);
 
-      // CARTO Dark Matter Basemaps with API key
+      // CARTO Dark Matter Basemaps with official key parameter
       const cartoApiKey = import.meta.env.VITE_CARTO_API_KEY || 'cb1_3rjr_1_44d8c30ca60ac913e3f7a9ee';
-      L.tileLayer(`https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?api_key=${cartoApiKey}`, {
+      L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key=${cartoApiKey}`, {
         maxZoom: 19,
         subdomains: 'abcd',
         attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
