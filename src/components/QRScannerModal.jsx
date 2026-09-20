@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import jsQR from 'jsqr';
-import { Camera, X, RefreshCw, AlertTriangle, Upload, Zap, Search, Bike, Keyboard } from 'lucide-react';
+import { Camera, X, RefreshCw, AlertTriangle, Upload, Zap, Keyboard, Bike } from 'lucide-react';
 
 export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availableCycles = [] }) {
   const [errorMsg, setErrorMsg] = useState('');
@@ -8,7 +9,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' or 'user'
   const [manualCode, setManualCode] = useState('');
   const [activeTab, setActiveTab] = useState('camera'); // 'camera' or 'manual' or 'list'
-  
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -115,7 +116,6 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
     setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
   };
 
-  // Native Mobile File Input Camera Scan
   const handleFileUploadScan = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -152,18 +152,19 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4">
-      <div className="glass-card w-full max-w-sm p-5 space-y-4 border-blue-500/40 shadow-2xl relative rounded-3xl overflow-hidden">
+  // React Portal to document.body ensures centered popup dialog above all elements!
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[9999] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="glass-card w-full max-w-sm p-5 space-y-4 border-blue-500/40 shadow-2xl relative rounded-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2.5">
             <div className="w-9 h-9 rounded-xl bg-blue-600/30 flex items-center justify-center text-blue-400 border border-blue-500/30">
               <Camera className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-extrabold text-white leading-tight">Unlock Campus Cycle</h3>
-              <p className="text-[10px] text-blue-400 font-medium">Scan QR or enter cycle code</p>
+              <h3 className="text-sm font-extrabold text-white leading-tight">Scan Cycle QR</h3>
+              <p className="text-[10px] text-blue-400 font-medium">Point camera at lock QR code</p>
             </div>
           </div>
           <button
@@ -171,14 +172,14 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
               stopWebcamStream();
               onClose();
             }}
-            className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white border border-white/10 transition"
+            className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white border border-white/10 transition active:scale-90"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Tab Switcher: Camera | Manual PIN | Select List */}
-        <div className="grid grid-cols-3 gap-1 bg-slate-900 p-1 rounded-xl border border-white/5 text-[11px] font-bold">
+        {/* Tab Switcher: Camera | Enter Code | Fleet Picker */}
+        <div className="grid grid-cols-3 gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10 text-[11px] font-bold">
           <button
             onClick={() => setActiveTab('camera')}
             className={`py-1.5 rounded-lg flex items-center justify-center gap-1 transition ${activeTab === 'camera' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
@@ -191,7 +192,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
             className={`py-1.5 rounded-lg flex items-center justify-center gap-1 transition ${activeTab === 'manual' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
           >
             <Keyboard className="w-3.5 h-3.5" />
-            <span>Enter Code</span>
+            <span>Keypad</span>
           </button>
           <button
             onClick={() => setActiveTab('list')}
@@ -202,7 +203,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
           </button>
         </div>
 
-        {/* Tab 1: Live WebRTC Camera Scan */}
+        {/* Tab 1: Centered WebRTC Viewfinder */}
         {activeTab === 'camera' && (
           <div className="space-y-3">
             <div className="relative w-full h-64 bg-black rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
@@ -214,7 +215,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
                 className="w-full h-full object-cover"
               />
 
-              {/* Laser Scanning Overlay */}
+              {/* Reticle Overlay */}
               {isScanning && (
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                   <div className="w-48 h-48 border-2 border-blue-500/60 rounded-2xl relative flex items-center justify-center">
@@ -227,7 +228,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
                 </div>
               )}
 
-              {/* Camera Error / Permission Fallback Overlay */}
+              {/* Error overlay */}
               {errorMsg && (
                 <div className="absolute inset-0 bg-slate-950/95 p-4 flex flex-col items-center justify-center text-center text-xs text-amber-300 space-y-2.5 z-20">
                   <AlertTriangle className="w-9 h-9 text-amber-400" />
@@ -275,7 +276,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
         {activeTab === 'manual' && (
           <form onSubmit={handleManualSubmit} className="space-y-4 py-2">
             <div className="text-center space-y-1">
-              <p className="text-xs text-slate-300 font-medium">Enter cycle number printed on the lock or frame:</p>
+              <p className="text-xs text-slate-300 font-medium">Type the cycle number on frame or lock:</p>
               <p className="text-[10px] text-slate-400">e.g. <span className="text-blue-400 font-mono font-bold">CR-001</span> or <span className="text-blue-400 font-mono font-bold">001</span></p>
             </div>
 
@@ -284,7 +285,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
               placeholder="e.g. CR-001"
               value={manualCode}
               onChange={(e) => setManualCode(e.target.value)}
-              className="w-full glass-input text-center text-xl font-bold tracking-widest text-emerald-400 uppercase font-mono py-3"
+              className="w-full glass-input text-center text-xl font-bold tracking-widest text-emerald-400 uppercase font-mono py-3 rounded-2xl"
               autoFocus
             />
 
@@ -330,6 +331,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

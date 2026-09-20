@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { Camera, X, CheckCircle, Aperture, RefreshCw, AlertCircle } from 'lucide-react';
 
 export default function ParkingPhotoModal({ isOpen, onClose, onSubmitEndTrip }) {
@@ -70,7 +71,6 @@ export default function ParkingPhotoModal({ isOpen, onClose, onSubmitEndTrip }) 
       setPhotoData(dataUrl);
       stopCamera();
     } else {
-      // Mock snapshot fallback
       setPhotoData('data:image/jpeg;base64,mock_yolo_parking_photo');
     }
   };
@@ -87,9 +87,9 @@ export default function ParkingPhotoModal({ isOpen, onClose, onSubmitEndTrip }) 
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="glass-card w-full max-w-sm p-5 space-y-4 border-emerald-500/40 rounded-3xl shadow-2xl">
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="glass-card w-full max-w-sm p-5 space-y-4 border-emerald-500/40 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between border-b border-slate-700/50 pb-3">
           <h3 className="text-base font-extrabold text-white flex items-center gap-2">
             <Camera className="w-5 h-5 text-emerald-400" />
@@ -161,6 +161,7 @@ export default function ParkingPhotoModal({ isOpen, onClose, onSubmitEndTrip }) 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, QrCode, Camera, Lock, Bluetooth, CheckCircle2, Bike, Search, ShieldCheck, Zap, Navigation, Battery, ChevronRight, Sparkles, SlidersHorizontal, Flame, Leaf } from 'lucide-react';
+import ReactDOM from 'react-dom';
+import { MapPin, QrCode, Camera, Lock, Bluetooth, CheckCircle2, Bike, Search, ShieldCheck, Zap, Navigation, Battery, ChevronRight, Sparkles, Flame, Leaf, ListFilter } from 'lucide-react';
 import CampusMap from './CampusMap';
 import QRScannerModal from './QRScannerModal';
 import ParkingPhotoModal from './ParkingPhotoModal';
@@ -14,7 +15,7 @@ export default function StudentView({
   onEndTrip,
   userLocation
 }) {
-  const [mobileTab, setMobileTab] = useState('ride'); // 'ride', 'map', 'profile'
+  const [mobileTab, setMobileTab] = useState('ride'); // 'ride', 'map', 'catalog', 'profile'
   const [showQRModal, setShowQRModal] = useState(false);
   const [showLockModal, setShowLockModal] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
@@ -105,7 +106,6 @@ export default function StudentView({
 
   const availableCycles = cycles.filter((c) => c.status === 'available');
 
-  // Compute distance for each available cycle to user location
   const sortedCyclesWithDistance = availableCycles.map((c) => {
     const dist = Math.round(haversineDistance(userLocation.lat, userLocation.lng, c.lat, c.lng));
     return { ...c, distanceMeters: dist };
@@ -162,33 +162,31 @@ export default function StudentView({
         </div>
       )}
 
-      {/* Main Tab Content */}
+      {/* Page Tab 1: 🚲 Ride Home */}
       {mobileTab === 'ride' && (
         <div className="space-y-4">
-          {/* Top Interactive Campus Map Banner */}
-          <div className="relative">
-            <CampusMap
-              hubs={hubs}
-              cycles={cycles}
-              height="h-72 md:h-80"
-              userLocation={userLocation}
-              onSelectCycle={(c) => handleScanSuccess(c.qrCode)}
-            />
-
-            {/* Floating Top Map Header Tag */}
-            <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
-              <span className="px-3 py-1.5 rounded-full bg-slate-900/90 backdrop-blur-md text-white text-xs font-bold border border-white/10 shadow-lg flex items-center gap-1.5 pointer-events-auto">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>200 Fleet • 10 Hubs</span>
+          {/* Hero Scan Card */}
+          <div className="glass-card p-6 rounded-3xl bg-gradient-to-br from-blue-900/40 via-slate-900 to-slate-950 border-blue-500/40 shadow-2xl space-y-4 relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>200 Fleet • 10 Campus Hubs</span>
               </span>
-              <span className="px-3 py-1.5 rounded-full bg-blue-600/90 backdrop-blur-md text-white text-xs font-bold border border-blue-400/30 shadow-lg flex items-center gap-1 pointer-events-auto">
+              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
                 <Navigation className="w-3.5 h-3.5" /> IIM Bodh Gaya
               </span>
             </div>
-          </div>
 
-          {/* Primary Action Button Bar */}
-          <div className="glass-card p-4 space-y-3 rounded-3xl bg-gradient-to-br from-blue-900/30 via-slate-900 to-slate-950 border-blue-500/30 shadow-2xl">
+            <div>
+              <h2 className="text-xl font-black text-white tracking-tight leading-tight">
+                Unlock Any Cycle in Seconds
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Tap scan below to open camera or enter cycle code.
+              </p>
+            </div>
+
+            {/* Glowing Scan QR Button */}
             <button
               onClick={() => setShowQRModal(true)}
               className="w-full btn-primary py-4 flex items-center justify-center gap-3 text-base font-extrabold shadow-xl shadow-blue-600/40 rounded-2xl group transition active:scale-98"
@@ -200,79 +198,49 @@ export default function StudentView({
             </button>
           </div>
 
-          {/* Student Trust Tier Badge Card */}
-          <div className="glass-card p-4 space-y-2.5 rounded-3xl">
+          {/* Quick Hub Map Preview */}
+          <div className="glass-card p-4 rounded-3xl space-y-2">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Campus Rider Rating</p>
-                <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className="text-2xl font-black text-blue-400">
-                    {currentUser?.trustScore.toFixed(1) || '98.5'}
-                  </span>
-                  <span className="text-xs text-slate-400">/ 100.0</span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 ml-2">
-                    GOLD RIDER
-                  </span>
-                </div>
-              </div>
-              <ShieldCheck className="w-9 h-9 text-blue-400" />
+              <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-blue-400" />
+                <span>Live Campus Map</span>
+              </h3>
+              <button onClick={() => setMobileTab('map')} className="text-[11px] font-bold text-blue-400 hover:underline">
+                View Full Map →
+              </button>
             </div>
-
-            <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-blue-500 via-emerald-400 to-amber-400 h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, Math.max(0, currentUser?.trustScore || 100))}%` }}
-              />
-            </div>
+            <CampusMap
+              hubs={hubs}
+              cycles={cycles}
+              height="h-56"
+              userLocation={userLocation}
+              onSelectCycle={(c) => handleScanSuccess(c.qrCode)}
+            />
           </div>
 
-          {/* Fleet Quick Selector & Search */}
+          {/* Nearby Bikes Carousel */}
           <div className="glass-card p-4 space-y-3 rounded-3xl">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold text-white flex items-center gap-2">
+              <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
                 <Bike className="w-4 h-4 text-blue-400" />
-                <span>Nearby Available Cycles ({availableCycles.length})</span>
+                <span>Closest Available Bikes ({availableCycles.length})</span>
               </h4>
-              <span className="text-[10px] text-slate-400">Sorted by distance</span>
+              <button onClick={() => setMobileTab('catalog')} className="text-[11px] text-slate-400 hover:text-white">
+                View All ({availableCycles.length})
+              </button>
             </div>
 
-            {/* Filter & Search Bar */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Filter cycle..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full glass-input text-xs pl-8 py-2 rounded-xl"
-                />
-              </div>
-
-              <select
-                value={selectedHubFilter}
-                onChange={(e) => setSelectedHubFilter(e.target.value)}
-                className="w-full glass-input text-xs py-2 rounded-xl"
-              >
-                <option value="all">All 10 Hubs</option>
-                {hubs.map((h) => (
-                  <option key={h.id} value={h.id}>{h.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Available Cycles Cards Grid */}
-            <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-              {filteredCycles.slice(0, 30).map((c) => {
+            <div className="space-y-2">
+              {sortedCyclesWithDistance.slice(0, 5).map((c) => {
                 const h = hubs.find((h) => h.id === c.hubId);
                 return (
                   <div
                     key={c.id}
                     onClick={() => handleScanSuccess(c.qrCode)}
-                    className="p-3 bg-slate-900/70 hover:bg-slate-800 rounded-2xl border border-white/5 flex items-center justify-between cursor-pointer transition group"
+                    className="p-3 bg-slate-900/80 hover:bg-slate-800 rounded-2xl border border-white/5 flex items-center justify-between cursor-pointer transition group"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center text-blue-400 border border-blue-500/30 group-hover:scale-105 transition text-base">
+                      <div className="w-10 h-10 rounded-2xl bg-blue-600/20 flex items-center justify-center text-blue-400 border border-blue-500/30 text-lg group-hover:scale-105 transition">
                         🚲
                       </div>
                       <div>
@@ -282,12 +250,8 @@ export default function StudentView({
                     </div>
                     <div className="flex items-center space-x-3">
                       <div className="text-right">
-                        <span className="text-xs font-bold text-emerald-400 block">
-                          ⚡ {c.batteryPct}%
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          {c.distanceMeters}m away
-                        </span>
+                        <span className="text-xs font-bold text-emerald-400 block">⚡ {c.batteryPct}%</span>
+                        <span className="text-[10px] text-slate-400 font-mono">{c.distanceMeters}m away</span>
                       </div>
                       <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition" />
                     </div>
@@ -299,7 +263,7 @@ export default function StudentView({
         </div>
       )}
 
-      {/* Map Tab */}
+      {/* Page Tab 2: 🗺️ Campus Hub Map */}
       {mobileTab === 'map' && (
         <div className="glass-card p-4 space-y-3 rounded-3xl">
           <div className="flex items-center justify-between">
@@ -330,7 +294,74 @@ export default function StudentView({
         </div>
       )}
 
-      {/* Profile Tab */}
+      {/* Page Tab 3: 📋 Full Fleet Catalog */}
+      {mobileTab === 'catalog' && (
+        <div className="glass-card p-4 space-y-3 rounded-3xl">
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <ListFilter className="w-4 h-4 text-blue-400" />
+              <span>Full Fleet Catalog (200 Cycles)</span>
+            </h3>
+            <span className="text-xs font-bold text-emerald-400">{availableCycles.length} Available</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search code..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full glass-input text-xs pl-8 py-2 rounded-xl"
+              />
+            </div>
+
+            <select
+              value={selectedHubFilter}
+              onChange={(e) => setSelectedHubFilter(e.target.value)}
+              className="w-full glass-input text-xs py-2 rounded-xl"
+            >
+              <option value="all">All 10 Hubs</option>
+              {hubs.map((h) => (
+                <option key={h.id} value={h.id}>{h.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="max-h-[500px] overflow-y-auto space-y-2 pr-1">
+            {filteredCycles.map((c) => {
+              const h = hubs.find((h) => h.id === c.hubId);
+              return (
+                <div
+                  key={c.id}
+                  onClick={() => handleScanSuccess(c.qrCode)}
+                  className="p-3 bg-slate-900/80 hover:bg-slate-800 rounded-2xl border border-white/5 flex items-center justify-between cursor-pointer transition group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-600/20 flex items-center justify-center text-blue-400 border border-blue-500/30 font-bold text-xs">
+                      🚲
+                    </div>
+                    <div>
+                      <strong className="text-xs font-bold text-white block">{c.code}</strong>
+                      <span className="text-[10px] text-slate-400">{h?.name || 'Campus Hub'}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="text-right">
+                      <span className="text-xs font-bold text-emerald-400 block">⚡ {c.batteryPct}%</span>
+                      <span className="text-[10px] text-slate-400 font-mono">PIN: {c.lockPin}</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Page Tab 4: 👤 Profile & Trust Tier */}
       {mobileTab === 'profile' && (
         <div className="glass-card p-6 space-y-4 text-center rounded-3xl">
           <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 border-2 border-blue-400 flex items-center justify-center text-white text-2xl font-black shadow-xl shadow-blue-600/30">
@@ -344,7 +375,7 @@ export default function StudentView({
           <div className="p-4 bg-slate-950/70 rounded-2xl space-y-3 text-xs border border-white/10 text-left">
             <div className="flex justify-between items-center">
               <span className="text-slate-400">Campus Verification:</span>
-              <span className="text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              <span className="text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
                 <CheckCircle2 className="w-3.5 h-3.5" /> @iimbg.ac.in Verified
               </span>
             </div>
@@ -360,8 +391,8 @@ export default function StudentView({
         </div>
       )}
 
-      {/* Floating Mobile Bottom Bar */}
-      <div className="fixed bottom-3 left-3 right-3 z-40 max-w-md mx-auto bg-slate-950/90 backdrop-blur-2xl border border-white/10 rounded-3xl py-2 px-6 flex items-center justify-around shadow-2xl">
+      {/* Floating Bottom Mobile Navigation Dock */}
+      <div className="fixed bottom-3 left-3 right-3 z-40 max-w-md mx-auto bg-slate-950/90 backdrop-blur-2xl border border-white/10 rounded-3xl py-2 px-5 flex items-center justify-around shadow-2xl">
         <button
           onClick={() => setMobileTab('ride')}
           className={`flex flex-col items-center gap-1 text-[10px] font-bold transition ${mobileTab === 'ride' ? 'text-blue-400 scale-105' : 'text-slate-400 hover:text-slate-200'}`}
@@ -378,7 +409,7 @@ export default function StudentView({
           <span>Map</span>
         </button>
 
-        {/* Central QR Camera Trigger */}
+        {/* Central Floating Camera Trigger */}
         <button
           onClick={() => setShowQRModal(true)}
           className="flex flex-col items-center gap-1 text-[10px] font-bold text-blue-400 -mt-6"
@@ -390,6 +421,14 @@ export default function StudentView({
         </button>
 
         <button
+          onClick={() => setMobileTab('catalog')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-bold transition ${mobileTab === 'catalog' ? 'text-blue-400 scale-105' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <ListFilter className="w-5 h-5" />
+          <span>Fleet</span>
+        </button>
+
+        <button
           onClick={() => setMobileTab('profile')}
           className={`flex flex-col items-center gap-1 text-[10px] font-bold transition ${mobileTab === 'profile' ? 'text-blue-400 scale-105' : 'text-slate-400 hover:text-slate-200'}`}
         >
@@ -398,7 +437,7 @@ export default function StudentView({
         </button>
       </div>
 
-      {/* Web Camera QR Scanner Modal */}
+      {/* Web Camera QR Scanner Modal (Portal on document.body) */}
       <QRScannerModal
         isOpen={showQRModal}
         onClose={() => setShowQRModal(false)}
@@ -406,17 +445,17 @@ export default function StudentView({
         availableCycles={availableCycles}
       />
 
-      {/* Device Camera Parking Photo Verification Modal */}
+      {/* Device Camera Parking Photo Verification Modal (Portal on document.body) */}
       <ParkingPhotoModal
         isOpen={showEndModal}
         onClose={() => setShowEndModal(false)}
         onSubmitEndTrip={onEndTrip}
       />
 
-      {/* Dual Lock Unlock Engine Modal */}
-      {showLockModal && selectedCycle && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="glass-card w-full max-w-sm p-5 space-y-4 border-blue-500/40 rounded-3xl shadow-2xl">
+      {/* Dual Lock Unlock Engine Modal (Portal on document.body) */}
+      {showLockModal && selectedCycle && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="glass-card w-full max-w-sm p-5 space-y-4 border-blue-500/40 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="text-base font-extrabold text-white flex items-center gap-2">
                 <Lock className="w-5 h-5 text-blue-400" />
@@ -473,7 +512,8 @@ export default function StudentView({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
