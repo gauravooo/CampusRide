@@ -16,8 +16,11 @@ export default function CampusMap({ hubs, cycles, height = "h-56", onSelectCycle
         attributionControl: false
       }).setView([24.6961, 84.9869], 16);
 
+      // 100% Free Open-Access Dark Tiles (OpenStreetMap + CARTO basemaps - Zero API keys required)
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19
+        maxZoom: 19,
+        subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
       }).addTo(map);
 
       L.control.zoom({ position: 'topleft' }).addTo(map);

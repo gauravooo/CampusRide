@@ -1,0 +1,10 @@
+name = "campusride"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-01-01"
+
+# Cloudflare D1 SQL Database Binding
+# In functions/api, this is accessible as context.env.DB
+[[d1_databases]]
+binding = "DB"
+database_name = "campusride-db"
+database_id = "campusride-db-id" # Replace with your D1 database ID from Cloudflare dashboard

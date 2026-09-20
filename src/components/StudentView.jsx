@@ -315,7 +315,12 @@ export default function StudentView({
       <ParkingPhotoModal
         isOpen={showEndModal}
         onClose={() => setShowEndModal(false)}
-        onSubmitEndTrip={onEndTrip}
+        onSubmitEndTrip={(result) => {
+          setShowEndModal(false);
+          onEndTrip(result);
+        }}
+        hubs={hubs}
+        userLocation={userLocation}
       />
 
       {/* Dual Lock Unlock Engine Modal (Portal on document.body) */}
