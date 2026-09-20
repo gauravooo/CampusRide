@@ -1,5 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
+import { Navigation } from 'lucide-react';
+
+// Official IIM Bodh Gaya Campus Geographic Boundary Coordinates
+const IIMBG_CAMPUS_BOUNDS = L.latLngBounds(
+  [24.6890, 84.9790], // South-West limit
+  [24.7035, 84.9955]  // North-East limit
+);
 
 export default function CampusMap({ hubs, cycles, height = "h-56", onSelectCycle, userLocation }) {
   const mapRef = useRef(null);
@@ -10,18 +17,33 @@ export default function CampusMap({ hubs, cycles, height = "h-56", onSelectCycle
     if (!mapRef.current) return;
 
     if (!leafletMap.current) {
-      // Initialize Leaflet map centered at IIM Bodh Gaya with sleek Dark CartoDB tiles
+      // Initialize Leaflet map restricted strictly to IIM Bodh Gaya campus
       const map = L.map(mapRef.current, {
+        center: [24.6961, 84.9869],
+        zoom: 16.5,
+        minZoom: 15.5, // Prevents zooming out of campus
+        maxZoom: 19,
+        maxBounds: IIMBG_CAMPUS_BOUNDS, // Limits map view to IIMBG
+        maxBoundsViscosity: 1.0, // Strict wall: cannot drag/pan outside campus
         zoomControl: false,
         attributionControl: false
-      }).setView([24.6961, 84.9869], 16);
+      });
 
-      // CARTO Dark Matter Basemaps with official key parameter
       const cartoApiKey = import.meta.env.VITE_CARTO_API_KEY || 'cb1_3rjr_1_44d8c30ca60ac913e3f7a9ee';
+
+      // 1. CARTO Dark Matter Base Layer
       L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key=${cartoApiKey}`, {
         maxZoom: 19,
         subdomains: 'abcd',
         attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+      }).addTo(map);
+
+      // 2. Medium High-Legibility Labels Layer (renders crisp road & landmark labels)
+      L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/dark_only_labels/{z}/{x}/{y}.png?key=${cartoApiKey}`, {
+        maxZoom: 19,
+        subdomains: 'abcd',
+        zIndex: 10,
+        opacity: 0.95
       }).addTo(map);
 
       L.control.zoom({ position: 'topleft' }).addTo(map);
@@ -34,7 +56,7 @@ export default function CampusMap({ hubs, cycles, height = "h-56", onSelectCycle
     const layers = layerGroup.current;
     layers.clearLayers();
 
-    // 1. Render Hub Geofence Circles & Markers
+    // 1. Render Hub Geofence Circles & Medium Labels
     hubs.forEach((h) => {
       const availCount = cycles.filter((c) => c.hubId === h.id && c.status === 'available').length;
       const color = availCount > 3 ? '#10b981' : availCount > 0 ? '#3b82f6' : '#ef4444';
@@ -44,26 +66,26 @@ export default function CampusMap({ hubs, cycles, height = "h-56", onSelectCycle
         radius: h.radius_meters || 60,
         color: color,
         fillColor: color,
-        fillOpacity: 0.15,
+        fillOpacity: 0.16,
         weight: 1.5,
         dashArray: '4, 6'
       });
       layers.addLayer(circle);
 
-      // Station Marker Pill
+      // Medium Legible Station Marker Pill
       const hubHtml = `
-        <div class="px-2.5 py-1 bg-slate-900/90 text-white rounded-full border border-white/20 shadow-xl flex items-center gap-1.5 font-sans whitespace-nowrap cursor-pointer hover:scale-105 transition">
-          <div class="w-2 h-2 rounded-full" style="background-color: ${color}"></div>
-          <span class="text-xs font-black tracking-tight">${h.name}</span>
-          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-mono">${availCount} 🚲</span>
+        <div class="px-2.5 py-1 bg-slate-900/95 text-white rounded-full border border-blue-500/30 shadow-2xl flex items-center gap-1.5 font-sans whitespace-nowrap cursor-pointer hover:scale-105 transition">
+          <div class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></div>
+          <span class="text-xs font-extrabold tracking-tight text-slate-100">${h.name}</span>
+          <span class="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-blue-500/30 text-blue-300 font-mono">${availCount} 🚲</span>
         </div>
       `;
 
       const hubIcon = L.divIcon({
         html: hubHtml,
         className: 'custom-hub-marker',
-        iconSize: [120, 30],
-        iconAnchor: [60, 15]
+        iconSize: [140, 32],
+        iconAnchor: [70, 16]
       });
 
       const hubMarker = L.marker([h.lat, h.lng], { icon: hubIcon });
@@ -126,9 +148,24 @@ export default function CampusMap({ hubs, cycles, height = "h-56", onSelectCycle
     }
   }, [hubs, cycles, userLocation]);
 
+  const handleRecenterCampus = () => {
+    if (leafletMap.current) {
+      leafletMap.current.setView([24.6961, 84.9869], 16.5, { animate: true });
+    }
+  };
+
   return (
     <div className={`relative w-full ${height} rounded-2xl overflow-hidden border border-slate-800 z-0`}>
       <div ref={mapRef} className="w-full h-full" />
+      {/* Quick Recenter Campus Button */}
+      <button
+        onClick={handleRecenterCampus}
+        className="absolute top-2 right-2 z-[400] px-2.5 py-1 bg-slate-900/90 hover:bg-slate-800 text-slate-200 text-[10px] font-bold rounded-xl border border-white/15 shadow-xl flex items-center gap-1 transition"
+        title="Recenter IIMBG Campus"
+      >
+        <Navigation className="w-3 h-3 text-blue-400" />
+        <span>Campus</span>
+      </button>
     </div>
   );
 }
