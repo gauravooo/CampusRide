@@ -1,57 +1,126 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 
-export default function CampusMap({ hubs, cycles, height = "h-56" }) {
+export default function CampusMap({ hubs, cycles, height = "h-80", onSelectCycle, userLocation }) {
   const mapRef = useRef(null);
   const leafletMap = useRef(null);
+  const layerGroup = useRef(null);
 
   useEffect(() => {
     if (!mapRef.current) return;
 
     if (!leafletMap.current) {
-      leafletMap.current = L.map(mapRef.current).setView([24.6961, 84.9869], 16);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
+      // Initialize map centered at IIM Bodh Gaya
+      const map = L.map(mapRef.current, {
+        zoomControl: false,
+        attributionControl: false
+      }).setView([24.6961, 84.9869], 16.5);
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom: 19
-      }).addTo(leafletMap.current);
+      }).addTo(map);
+
+      L.control.zoom({ position: 'topright' }).addTo(map);
+
+      leafletMap.current = map;
+      layerGroup.current = L.layerGroup().addTo(map);
     }
 
     const map = leafletMap.current;
+    const layers = layerGroup.current;
+    layers.clearLayers();
 
-    // Clear existing markers
-    map.eachLayer((layer) => {
-      if (layer instanceof L.CircleMarker) {
-        map.removeLayer(layer);
-      }
-    });
-
-    // Add Hub circle markers
+    // 1. Render Hub Geofence Circles
     hubs.forEach((h) => {
-      const availableCount = cycles.filter((c) => c.hubId === h.id && c.status === 'available').length;
-      
-      const marker = L.circleMarker([h.lat, h.lng], {
-        radius: 10,
-        fillColor: availableCount > 3 ? '#10b981' : availableCount > 0 ? '#f59e0b' : '#ef4444',
-        color: '#ffffff',
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.85
-      }).addTo(map);
+      const availCount = cycles.filter((c) => c.hubId === h.id && c.status === 'available').length;
+      const color = availCount > 3 ? '#10b981' : availCount > 0 ? '#3b82f6' : '#ef4444';
 
-      marker.bindPopup(`
-        <div style="text-align:center; padding:4px;">
-          <strong style="color:#60a5fa; font-size:13px;">${h.name} (${h.code})</strong><br/>
-          <span style="font-size:11px; color:#cbd5e1;">Capacity: ${h.capacity}</span><br/>
-          <span style="font-size:12px; font-weight:bold; color:#10b981;">🚲 ${availableCount} Available</span>
+      // Geofence Circle
+      const circle = L.circle([h.lat, h.lng], {
+        radius: h.radius_meters || 60,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.15,
+        weight: 1.5,
+        dashArray: '4, 6'
+      });
+      layers.addLayer(circle);
+
+      // Hub Marker Pill
+      const hubHtml = `
+        <div class="px-2.5 py-1 bg-slate-900/90 text-white rounded-full border border-white/20 shadow-xl flex items-center gap-1.5 font-sans whitespace-nowrap cursor-pointer hover:scale-105 transition">
+          <div class="w-2 h-2 rounded-full" style="background-color: ${color}"></div>
+          <span class="text-xs font-black tracking-tight">${h.name}</span>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-mono">${availCount} 🚲</span>
+        </div>
+      `;
+
+      const hubIcon = L.divIcon({
+        html: hubHtml,
+        className: 'custom-hub-marker',
+        iconSize: [120, 30],
+        iconAnchor: [60, 15]
+      });
+
+      const hubMarker = L.marker([h.lat, h.lng], { icon: hubIcon });
+      hubMarker.bindPopup(`
+        <div style="padding:6px; min-width:160px; color:#ffffff; font-family:sans-serif;">
+          <h4 style="margin:0; font-size:14px; font-weight:800; color:#60a5fa;">${h.name} (${h.code})</h4>
+          <p style="margin:4px 0; font-size:11px; color:#94a3b8;">${h.description}</p>
+          <div style="margin-top:6px; font-size:12px; font-weight:700; color:#10b981; display:flex; justify-between;">
+            <span>Available: ${availCount} / ${h.capacity}</span>
+          </div>
         </div>
       `);
+      layers.addLayer(hubMarker);
     });
-  }, [hubs, cycles]);
+
+    // 2. Render Available Cycles Pins
+    const availableCycles = cycles.filter((c) => c.status === 'available').slice(0, 30);
+    availableCycles.forEach((c) => {
+      const cycleHtml = `
+        <div class="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-lg border-2 border-white hover:scale-110 transition cursor-pointer text-xs">
+          🚲
+        </div>
+      `;
+
+      const cycleIcon = L.divIcon({
+        html: cycleHtml,
+        className: 'custom-cycle-marker',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+
+      const cycleMarker = L.marker([c.lat, c.lng], { icon: cycleIcon });
+      cycleMarker.bindPopup(`
+        <div style="padding:4px; text-center; font-family:sans-serif;">
+          <strong style="color:#ffffff; font-size:13px; block;">${c.code}</strong>
+          <span style="font-size:11px; color:#10b981; font-weight:bold;">BLE Lock • ${c.batteryPct}% Battery</span><br/>
+          <span style="font-size:10px; color:#94a3b8; font-family:monospace;">PIN: ${c.lockPin}</span>
+        </div>
+      `);
+      layers.addLayer(cycleMarker);
+    });
+
+    // 3. User Location Marker
+    if (userLocation) {
+      const userHtml = `
+        <div class="w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-[0_0_12px_#10b981] animate-ping"></div>
+      `;
+      const userIcon = L.divIcon({
+        html: userHtml,
+        className: 'custom-user-marker',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+      const userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon });
+      layers.addLayer(userMarker);
+    }
+  }, [hubs, cycles, userLocation]);
 
   return (
-    <div
-      ref={mapRef}
-      className={`w-full ${height} rounded-xl border border-slate-700/50 z-10`}
-    />
+    <div className={`relative w-full ${height} rounded-3xl overflow-hidden border border-slate-700/50 shadow-2xl z-0`}>
+      <div ref={mapRef} className="w-full h-full" />
+    </div>
   );
 }
