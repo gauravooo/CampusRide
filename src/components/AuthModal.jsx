@@ -1,27 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, Zap, X, AlertTriangle, Settings, Lock } from 'lucide-react';
+import { ShieldCheck, Zap, X, AlertTriangle, Lock } from 'lucide-react';
+
+const GOOGLE_CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  '509461351344-5oi514h56p57nuj2vhlq426grv3ejjv4.apps.googleusercontent.com';
 
 export default function AuthModal({ isOpen, onClose, onLogin }) {
   const [error, setError] = useState('');
-  const [showConfig, setShowConfig] = useState(false);
-  const [googleClientId, setGoogleClientId] = useState(() => {
-    return (
-      localStorage.getItem('campus_google_client_id') ||
-      import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-      '509461351344-5oi514h56p57nuj2vhlq426grv3ejjv4.apps.googleusercontent.com'
-    );
-  });
-
   const googleBtnRef = useRef(null);
 
   // Initialize Google Identity Services
   useEffect(() => {
     if (!isOpen) return;
 
-    if (window.google && window.google.accounts && googleClientId) {
+    if (window.google && window.google.accounts && GOOGLE_CLIENT_ID) {
       try {
         window.google.accounts.id.initialize({
-          client_id: googleClientId,
+          client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleCredentialResponse,
           auto_select: false,
           cancel_on_tap_outside: true
@@ -41,7 +36,7 @@ export default function AuthModal({ isOpen, onClose, onLogin }) {
         console.warn('[GIS Init Error]', err);
       }
     }
-  }, [isOpen, googleClientId]);
+  }, [isOpen]);
 
   const handleGoogleCredentialResponse = (response) => {
     setError('');
@@ -142,38 +137,6 @@ export default function AuthModal({ isOpen, onClose, onLogin }) {
           {/* Google Identity Services Render Target */}
           <div className="flex justify-center py-2 min-h-[44px]">
             <div ref={googleBtnRef} id="googleSignInDiv"></div>
-          </div>
-
-          {/* Quick Config Toggle */}
-          <div className="pt-1 border-t border-white/5 text-left">
-            <button
-              onClick={() => setShowConfig(!showConfig)}
-              className="text-[10px] text-slate-400 hover:text-blue-400 font-medium flex items-center gap-1 transition"
-            >
-              <Settings className="w-3 h-3" />
-              <span>OAuth Client ID Settings</span>
-            </button>
-
-            {showConfig && (
-              <div className="space-y-1.5 pt-2">
-                <input
-                  type="text"
-                  placeholder="Google OAuth Client ID"
-                  value={googleClientId}
-                  onChange={(e) => setGoogleClientId(e.target.value)}
-                  className="w-full glass-input text-[10px] font-mono py-1.5 rounded-lg"
-                />
-                <button
-                  onClick={() => {
-                    localStorage.setItem('campus_google_client_id', googleClientId);
-                    alert('Google Client ID updated! Please re-open the dialog to reload.');
-                  }}
-                  className="w-full py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold"
-                >
-                  Save Settings
-                </button>
-              </div>
-            )}
           </div>
         </div>
 
