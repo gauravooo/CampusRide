@@ -285,6 +285,39 @@ export default function AdminView({
     setEditingHub(null);
   };
 
+  // If user is currently logged in as a student/rider, block admin view and require logout
+  if (currentUser && currentUser.role !== 'admin') {
+    return (
+      <div className="max-w-md mx-auto py-16 px-4">
+        <div className="glass-card p-6 space-y-4 border-amber-500/40 rounded-3xl shadow-2xl text-center">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-600/30 flex items-center justify-center text-amber-400 border border-amber-500/30 shadow">
+            <Lock className="w-7 h-7" />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-white">Admin Access Restricted</h2>
+            <p className="text-xs text-slate-300 mt-1">
+              You are currently signed in as a Rider (<strong className="text-white">{currentUser.name || currentUser.email}</strong>). Fleet administration requires logging out of your rider account first.
+            </p>
+          </div>
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={onLogout}
+              className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs rounded-xl transition shadow"
+            >
+              Log Out of Rider to Enter Admin
+            </button>
+            <Link
+              to="/"
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition block"
+            >
+              Return to Rider View
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Passcode gate if not authorized
   if (!adminUnlocked) {
     return (

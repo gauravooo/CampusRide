@@ -415,8 +415,18 @@ export default function App() {
     setCurrentUser(userData);
     localStorage.setItem('campus_user', JSON.stringify(userData));
 
+    // 3. If this student has an active trip in progress, restore it
+    const activeFromBackend = trips.find(
+      (t) => (t.userEmail === userData.email || String(t.userId) === String(userData.id)) &&
+             (t.status === 'in_progress' || t.status === 'active')
+    );
+    if (activeFromBackend) {
+      setActiveTrip(activeFromBackend);
+      localStorage.setItem('campus_active_trip', JSON.stringify(activeFromBackend));
+    }
+
     try {
-      // 3. Sync with backend Cloudflare D1 SQL database
+      // 4. Sync with backend Cloudflare D1 SQL database
       const saved = await api.loginUser(userData.email, userData.name, userData.picture);
       const enriched = {
         ...userData,
@@ -459,10 +469,17 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('campus_user');
     localStorage.removeItem('admin_unlocked');
+    localStorage.removeItem('campus_active_trip');
+    setActiveTrip(null);
     setCurrentUser(null);
     navigate('/');
     setShowAuthModal(false);
   };
+
+  // Only provide activeTrip to StudentView if currentUser is authenticated and owns the active trip
+  const userActiveTrip = (currentUser && currentUser.role !== 'admin' && activeTrip && (activeTrip.userEmail === currentUser.email || String(activeTrip.userId) === String(currentUser.id)))
+    ? activeTrip
+    : null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-16">
@@ -484,7 +501,7 @@ export default function App() {
                   currentUser={currentUser}
                   hubs={hubs}
                   cycles={cycles}
-                  activeTrip={activeTrip}
+                  activeTrip={userActiveTrip}
                   onStartTrip={handleStartTrip}
                   onEndTrip={handleEndTrip}
                   userLocation={userLocation}
@@ -496,19 +513,23 @@ export default function App() {
           <Route
             path="/admin"
             element={
-              <AdminView
-                hubs={hubs}
-                cycles={cycles}
-                activeTrip={activeTrip}
-                users={users}
-                trips={trips}
-                onAdjustTrustScore={handleAdjustTrustScore}
-                onSaveHub={handleSaveHub}
-                onDeleteHub={handleDeleteHub}
-                currentUser={currentUser}
-                onAdminLogin={handleAdminLogin}
-                onLogout={handleLogout}
-              />
+              currentUser && currentUser.role !== 'admin' ? (
+                <Navigate to="/" replace />
+              ) : (
+                <AdminView
+                  hubs={hubs}
+                  cycles={cycles}
+                  activeTrip={activeTrip}
+                  users={users}
+                  trips={trips}
+                  onAdjustTrustScore={handleAdjustTrustScore}
+                  onSaveHub={handleSaveHub}
+                  onDeleteHub={handleDeleteHub}
+                  currentUser={currentUser}
+                  onAdminLogin={handleAdminLogin}
+                  onLogout={handleLogout}
+                />
+              )
             }
           />
         </Routes>

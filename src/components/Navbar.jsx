@@ -51,8 +51,8 @@ export default function Navbar({ currentUser, onOpenAuth, onLogout }) {
               <span className="sm:hidden">Log Out</span>
             </button>
           </div>
-        ) : (
-          /* Navigation Route Tabs */
+        ) : !currentUser ? (
+          /* Guest Navigation: Rider vs Admin */
           <div className="flex bg-slate-950 p-1 rounded-2xl border border-white/10 text-xs font-bold shadow-inner">
             <Link
               to="/"
@@ -77,6 +77,14 @@ export default function Navbar({ currentUser, onOpenAuth, onLogout }) {
               <LayoutDashboard className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Admin</span>
             </Link>
+          </div>
+        ) : (
+          /* Logged-in Student: Only Rider Mode (Admin restricted without logout) */
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1.5 rounded-2xl bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-bold flex items-center gap-1.5 shadow-inner">
+              <Smartphone className="w-3.5 h-3.5 text-blue-400" />
+              <span>Rider Active</span>
+            </span>
           </div>
         )}
 

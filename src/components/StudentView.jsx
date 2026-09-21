@@ -222,6 +222,7 @@ export default function StudentView({
               cycles={safeCycles}
               height="h-64 sm:h-80 md:h-96 lg:h-[430px]"
               userLocation={userLocation}
+              currentUser={currentUser}
               onSelectCycle={(qrCode) => {
                 if (!currentUser) {
                   if (onRequireAuth) onRequireAuth();

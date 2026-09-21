@@ -58,11 +58,16 @@ const getHubIcon = (code = '', name = '') => {
   return '📍';
 };
 
-export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onSelectCycle, userLocation }) {
+export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onSelectCycle, userLocation, currentUser }) {
   const mapRef = useRef(null);
   const leafletMap = useRef(null);
   const layerGroup = useRef(null);
   const tileLayersRef = useRef([]);
+  const onSelectCycleRef = useRef(onSelectCycle);
+
+  useEffect(() => {
+    onSelectCycleRef.current = onSelectCycle;
+  }, [onSelectCycle]);
 
   // Map settings with persistent localStorage
   const [mapStyle, setMapStyle] = useState(() => {
@@ -260,12 +265,33 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
       layers.addLayer(hubMarker);
     });
 
-    // C. Available Cycles (Neat micro-pins with zIndex 500 under hubs)
+    // C. Available Cycles (Evenly distributed micro-pins across ALL designated campus hubs)
     if (showCycles) {
-      const availableCycles = cycles.filter((c) => c.status === 'available').slice(0, 40);
-      availableCycles.forEach((c) => {
-        if (!c.lat || !c.lng) return;
+      const hubCycleCounts = new Map();
+      const availableCycles = [];
 
+      cycles.forEach((c) => {
+        if (c.status !== 'available') return;
+        const currentCount = hubCycleCounts.get(c.hubId) || 0;
+        if (currentCount < 8) {
+          hubCycleCounts.set(c.hubId, currentCount + 1);
+          const hub = hubs.find((h) => String(h.id) === String(c.hubId));
+          // If lat/lng missing or out of place, position within hub radius
+          let lat = parseFloat(c.lat);
+          let lng = parseFloat(c.lng);
+          if (!lat || !lng || (hub && (Math.abs(lat - hub.lat) > 0.003 || Math.abs(lng - hub.lng) > 0.003))) {
+            if (hub) {
+              lat = hub.lat + (Math.random() - 0.5) * 0.0003;
+              lng = hub.lng + (Math.random() - 0.5) * 0.0003;
+            }
+          }
+          if (lat && lng) {
+            availableCycles.push({ ...c, lat, lng });
+          }
+        }
+      });
+
+      availableCycles.forEach((c) => {
         const cycleHtml = `
           <div class="w-4 h-4 rounded-full bg-blue-600/90 text-white flex items-center justify-center font-bold shadow-md border border-white/90 hover:scale-125 transition cursor-pointer text-[9px]">
             🚲
@@ -280,8 +306,11 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
         });
 
         const cycleMarker = L.marker([c.lat, c.lng], { icon: cycleIcon, zIndexOffset: 500 });
-        cycleMarker.on('click', () => {
-          if (onSelectCycle) onSelectCycle(c.qrCode);
+        cycleMarker.on('click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          if (onSelectCycleRef.current) {
+            onSelectCycleRef.current(c.qrCode);
+          }
         });
 
         cycleMarker.bindPopup(`
@@ -350,7 +379,7 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
       `);
       layers.addLayer(userMarker);
     }
-  }, [hubs, cycles, userLocation, showLabels, showCycles]);
+  }, [hubs, cycles, userLocation, showLabels, showCycles, currentUser]);
 
   const handleRecenterCampus = () => {
     if (leafletMap.current) {
