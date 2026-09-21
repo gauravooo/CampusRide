@@ -202,51 +202,43 @@ sequenceDiagram
 
 ## 🔐 Role-Based Access Control & Session State Machine
 
-The application enforces strict separation between student riders and campus fleet administrators to prevent state contamination and security bypasses:
+The application enforces strict separation between student riders and campus fleet administrators to prevent state contamination and session hijacking:
 
 ```mermaid
 stateDiagram-v2
     [*] --> GuestUser: Application Loads
     
-    state GuestUser {
-        [*] --> BrowsingMap
-        BrowsingMap --> LoginRequired: Attempt to Scan QR / Select Bike / Open Admin
-    }
-
-    LoginRequired --> StudentAuthenticated: Google SSO Login (@iimbg.ac.in)
-    LoginRequired --> AdminPINEntry: Navigate to /admin (Unauthenticated)
-
+    GuestUser --> StudentAuthenticated: Google SSO Login (@iimbg.ac.in)
+    GuestUser --> AdminPINEntry: Navigate /admin (Unauthenticated)
+    
     state StudentAuthenticated {
         [*] --> IdleRider
-        IdleRider --> ActiveRide: Unlock Cycle
-        ActiveRide --> EndingRide: Reach Destination
+        IdleRider --> ActiveRide: Unlock Cycle (PIN / BLE)
+        ActiveRide --> EndingRide: Reach Destination Hub
         EndingRide --> IdleRider: Photo Verified & Locked
-        
-        note right of StudentAuthenticated
-            Admin button is hidden.
-            Direct /admin URL redirects to /
-            to protect rider session.
-        end note
     }
-
-    StudentAuthenticated --> GuestUser: Logout Rider Account
 
     state AdminPINEntry {
         [*] --> AwaitingPIN
-        AwaitingPIN --> AdminAuthenticated: Correct PIN Entered ("1234")
+        AwaitingPIN --> AdminAuthenticated: PIN Verified (8888)
         AwaitingPIN --> AwaitingPIN: Incorrect PIN
     }
 
     state AdminAuthenticated {
         [*] --> FleetMonitoring
-        FleetMonitoring --> HubManagement: Add/Edit Station
+        FleetMonitoring --> HubManagement: Add / Edit Station
         FleetMonitoring --> TrustScoreAudit: Override Student Score
         FleetMonitoring --> TripHistory: View Active, Recent & Archived Rides
         FleetMonitoring --> AIRebalance: Trigger Demand Optimization
     }
 
-    AdminAuthenticated --> GuestUser: Logout Admin (Active Rider State Cleared)
+    StudentAuthenticated --> GuestUser: Logout Rider Account
+    AdminAuthenticated --> GuestUser: Logout Admin Account
 ```
+
+> [!IMPORTANT]
+> **Strict Rider Session Isolation**: When a student rider is actively logged in (`currentUser.role !== 'admin'`), the "Admin" button in the navigation bar is automatically suppressed and direct URL navigation to `/admin` immediately redirects back to `/`. A student must explicitly log out before entering the Admin PIN gate, preventing cross-role session contamination.
+
 
 ---
 
