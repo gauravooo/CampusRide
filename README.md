@@ -3,7 +3,7 @@
 
 > **Zero-Cost, Edge-First Campus Cycle Sharing Platform & Fleet Intelligence System**  
 > Tailored for the Indian Institute of Management Bodh Gaya (~24.6800° N, 84.9650° E).  
-> Dual Deployment Target: **Cloudflare Pages + D1 Edge Serverless PWA** & **Containerized FastAPI / PostgreSQL Backend**.
+> **100% Standalone React Progressive Web Application (PWA)** deployed on **Cloudflare Pages + Cloudflare D1 Serverless SQL Database**.
 
 ---
 
@@ -28,13 +28,15 @@
 
 ## 🏛️ Executive Summary
 
-**CampusRide** is a high-availability micro-mobility platform engineered to solve last-mile transit across the 119-acre campus of **IIM Bodh Gaya**. Designed under a zero-cost infrastructure mandate, the platform pairs an ultra-lightweight client-side **Progressive Web Application (PWA)** with a distributed edge serverless backend running on **Cloudflare Pages and D1 (SQLite at the Edge)**. For enterprise institutional hosting, a drop-in **FastAPI / SQLAlchemy / Docker** backend is also provided.
+**CampusRide** is a high-availability micro-mobility platform engineered to solve last-mile transit across the 119-acre campus of **IIM Bodh Gaya**. While Prototype 1 was initially explored using a Python/FastAPI backend, the system has now been **fully migrated to a 100% standalone React Progressive Web Application (PWA)** powered by **Cloudflare Pages and D1 (Serverless SQLite at the Edge)**.
+
+All machine learning demand forecasting, geospatial geofencing, visual parking proof processing, and fleet state management execute entirely within the client application and Cloudflare's serverless edge, eliminating all Docker, container, and Python backend dependencies.
 
 ### Key Architectural Capabilities
 - **Decentralized Dual-Lock Mechanism**: Accommodates both legacy manual combination locks (via secure 4-digit PIN reveal upon QR scan) and smart IoT BLE padlocks (via virtual Bluetooth Low Energy GATT handshakes with RSSI and battery telemetry).
 - **Sub-Meter Geofencing**: Validates ride termination within designated campus hubs using the spherical Haversine formula with a 25m–60m radius boundary.
-- **Predictive AI Fleet Rebalancing**: Employs a Scikit-Learn `RandomForestRegressor` ensemble to forecast hourly cycle demand surges and deficits across campus hubs based on lecture timetables, hostel migration rhythms, and dining schedules.
-- **Mandatory Photographic Parking Proof**: Enforces camera-captured visual verification upon trip conclusion, coupling client-side canvas geotagging with a YOLO/ONNX computer vision pipeline to ensure cycles are neatly racked.
+- **Predictive AI Fleet Rebalancing**: Employs a pure JavaScript `RandomForestRegressor` ensemble running 100% client-side to forecast hourly cycle demand surges and deficits across campus hubs based on lecture timetables, hostel migration rhythms, and dining schedules.
+- **Mandatory Photographic Parking Proof**: Enforces camera-captured visual verification upon trip conclusion, coupling client-side canvas geotagging with an image verification pipeline to ensure cycles are neatly racked.
 - **Dynamic Trust Score Model**: Self-regulates student parking compliance through an automated incentive/penalty scoring algorithm ($0.0 - 100.0$).
 - **Lifecycle Data Tiering**: Automatically archives completed rides older than 60 days (2 months) while keeping active in-progress and recent rides sorted by decreasing end time (`endTime DESC`).
 
@@ -50,10 +52,8 @@
 | **Icons & Design** | Visual Components | **Lucide React, Glassmorphism CSS** | Minimalist modern design with accessible contrast and touch-friendly tap targets. |
 | **Edge Serverless** | Serverless Backend | **Cloudflare Pages Functions (V8 Workers)** | Zero cold-start API endpoints (`/api/trips`, `/api/hubs`, `/api/users`) executed on Cloudflare's global edge network. |
 | **Edge Database** | SQL Persistence | **Cloudflare D1 (Serverless SQLite)** | Globally replicated relational database with native ACID compliance and zero operational maintenance. |
-| **Enterprise Server** | Alternative Backend | **Python 3.11, FastAPI, Uvicorn** | High-throughput asynchronous REST backend with OpenAPI/Swagger documentation. |
-| **Enterprise ORM** | Data Access | **SQLAlchemy 2.0, Pydantic v2** | Type-safe declarative data models supporting SQLite and PostgreSQL engines. |
 | **AI Demand Forecast** | Predictive Analytics | **Pure JS RandomForestRegressor (Client-Side)** | Ported non-linear regression ensemble running 100% in-browser on Cloudflare Pages without Python or Docker dependencies. |
-| **Computer Vision** | Proof of Parking | **YOLO / ONNX Runtime (Client/Server)** | Image object detection checking for bicycle frame alignment and parking rack engagement. |
+| **Computer Vision** | Proof of Parking | **HTML5 Canvas Geostamp & Image Verification** | Real-time camera viewfinder with GPS watermarking and parking rack compliance verification. |
 | **Identity & Access** | Authentication | **Google OAuth 2.0 SSO + Admin PIN Gate** | Restricts rider access strictly to `@iimbg.ac.in` domain accounts; safeguards admin controls with a persistent cryptographic PIN. |
 | **Hardware / IoT** | Smart Padlock Sync | **Virtual BLE / Web Bluetooth API** | Simulates Bluetooth Low Energy GATT characteristics (battery %, RSSI signal strength, unlock relay). |
 
@@ -63,12 +63,18 @@
 
 ```mermaid
 flowchart TD
-    subgraph ClientLayer["Frontend Client Layer (Mobile PWA / Desktop)"]
+    subgraph ClientLayer["Frontend Client Layer (Standalone React PWA)"]
         UI["React 18 SPA (Vite + Tailwind)"]
         SW["Service Worker & Manifest Cache"]
         Map["Leaflet.js Geospatial Engine"]
         Camera["HTML5 MediaDevices / Canvas Geostamp"]
         LocalCache["LocalStorage Cache (Trips, Cycles, Session)"]
+    end
+
+    subgraph ClientAILayer["Client-Side Machine Learning & Optimization Engine"]
+        RF["Pure JS RandomForestRegressor (25 Trees)"]
+        Optimizer["Spatial Min-Cost Rebalancing Optimizer"]
+        ScenarioSim["Campus Time-Scenario Simulator"]
     end
 
     subgraph AuthLayer["Identity & Access Boundary"]
@@ -84,13 +90,6 @@ flowchart TD
         EdgeUsers["/api/users"]
     end
 
-    subgraph PythonLayer["Enterprise Containerized Backend (Optional Docker)"]
-        FastAPI["FastAPI REST Application"]
-        AI_Forecaster["RandomForest Demand Forecaster"]
-        AI_Vision["YOLO / ONNX Photo Validator"]
-        SQLAlchemy["SQLAlchemy ORM (SQLite / Postgres)"]
-    end
-
     UI -->|"Authenticates"| AuthLayer
     GoogleSSO -->|"Grants Student JWT"| UI
     AdminGate -->|"Unlocks Fleet Dashboard"| UI
@@ -98,13 +97,13 @@ flowchart TD
     UI -->|"Captures Visual Proof"| Camera
     UI -->|"Renders Hubs & Live Telemetry"| Map
 
+    UI <-->|"In-Memory ML Inference"| ClientAILayer
+    RF --> Optimizer
+    ScenarioSim --> RF
+
     UI -->|"Edge HTTP Fetch"| PagesEdge
     PagesEdge --> EdgeTrips & EdgeHubs & EdgeUsers
     EdgeTrips & EdgeHubs & EdgeUsers <-->|"SQL Read/Write"| D1
-
-    UI -.->|"Alternative REST Sync"| FastAPI
-    FastAPI --> AI_Forecaster & AI_Vision
-    FastAPI <--> SQLAlchemy
 ```
 
 ---
@@ -529,12 +528,14 @@ erDiagram
 
 ### Prerequisites
 - Node.js `v18.0.0+` & npm `v9.0.0+`
-- Python `3.11+` (if running containerized enterprise backend)
-- Cloudflare Wrangler CLI (optional, for edge deployment)
+- Cloudflare Wrangler CLI (optional, for direct edge deployment)
+
+> [!NOTE]
+> **Prototype 1 Retirement**: The initial proof-of-concept for CampusRide was built as a Python/FastAPI backend prototype. The application has since been **fully migrated to this 100% standalone React Progressive Web Application (PWA)** backed by Cloudflare Pages and D1. All backend APIs, machine learning demand forecasting, and fleet rebalancing algorithms run natively on the edge and client with **zero Python or Docker dependencies**.
 
 ---
 
-### Option A: Cloudflare Pages + D1 Edge Deployment (100% Free & Recommended)
+### Cloudflare Pages + D1 Edge Deployment (100% Free & Standalone)
 
 #### 1. Install Dependencies
 ```bash
@@ -572,24 +573,6 @@ npx wrangler pages deploy dist --project-name=campusride
 
 ---
 
-### Option B: Containerized FastAPI / Python Enterprise Deployment
-
-#### 1. Setup Python Virtual Environment
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-#### 2. Run Database Seed & API Server
-```bash
-python3 -m app.seed
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-Interactive OpenAPI documentation will be accessible at `http://localhost:8000/docs`.
-
----
-
 ## 🛡️ Security, Privacy & Fault Tolerance
 
 1. **Email Domain Enforcement**: The frontend and backend reject any rider login outside `@iimbg.ac.in`.
@@ -602,5 +585,5 @@ Interactive OpenAPI documentation will be accessible at `http://localhost:8000/d
 
 <div align="center">
   <sub>Built for Indian Institute of Management Bodh Gaya (IIMBG) • Pragyanam Brahma</sub><br/>
-  <sub>Engineered with React 18, Vite, Cloudflare Pages, Cloudflare D1 & Scikit-Learn</sub>
+  <sub>Engineered with React 18, Vite, Cloudflare Pages, Cloudflare D1 & Pure JS RandomForest</sub>
 </div>
