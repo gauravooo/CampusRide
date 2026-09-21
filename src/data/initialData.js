@@ -59,8 +59,8 @@ export const generateInitialTrips = () => {
     {
       id: 101,
       userId: 1,
-      userName: 'Aarav Sharma',
-      userEmail: 'aarav.s2025@iimbg.ac.in',
+      userName: 'Aditya Verma',
+      userEmail: 'aditya.v2025@iimbg.ac.in',
       cycleId: 1,
       cycleCode: 'BG-CYCLE-001',
       startHubId: 1,
@@ -154,8 +154,8 @@ export const generateInitialTrips = () => {
     {
       id: 106,
       userId: 1,
-      userName: 'Aarav Sharma',
-      userEmail: 'aarav.s2025@iimbg.ac.in',
+      userName: 'Aditya Verma',
+      userEmail: 'aditya.v2025@iimbg.ac.in',
       cycleId: 15,
       cycleCode: 'BG-CYCLE-015',
       startHubId: 4,
@@ -213,8 +213,8 @@ export const generateInitialTrips = () => {
     {
       id: 201,
       userId: 1,
-      userName: 'Aarav Sharma',
-      userEmail: 'aarav.s2025@iimbg.ac.in',
+      userName: 'Aditya Verma',
+      userEmail: 'aditya.v2025@iimbg.ac.in',
       cycleId: 2,
       cycleCode: 'BG-CYCLE-002',
       startHubId: 1,
@@ -308,8 +308,8 @@ export const generateInitialTrips = () => {
     {
       id: 206,
       userId: 1,
-      userName: 'Aarav Sharma',
-      userEmail: 'aarav.s2025@iimbg.ac.in',
+      userName: 'Aditya Verma',
+      userEmail: 'aditya.v2025@iimbg.ac.in',
       cycleId: 1,
       cycleCode: 'BG-CYCLE-001',
       startHubId: 7,

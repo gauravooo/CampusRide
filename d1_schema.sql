@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS trips (
   end_time DATETIME,
   duration_minutes REAL,
   photo_verified INTEGER DEFAULT 1,
+  photo_url TEXT,
   trust_score_delta REAL DEFAULT 0.0,
   within_geofence INTEGER DEFAULT 1,
   status TEXT DEFAULT 'completed'

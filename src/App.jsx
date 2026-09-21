@@ -11,13 +11,21 @@ import TripCompleteModal from './components/TripCompleteModal';
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('campus_user');
-    if (saved) {
+    if (saved && saved !== 'null' && saved !== 'undefined') {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object' && parsed.id) return parsed;
+        if (
+          parsed &&
+          typeof parsed === 'object' &&
+          parsed.email &&
+          !parsed.isDemo &&
+          parsed.email !== 'aarav.s2025@iimbg.ac.in'
+        ) {
+          return parsed;
+        }
       } catch (e) {}
     }
-    return { id: 1, name: 'Aarav Sharma', email: 'aarav.s2025@iimbg.ac.in', role: 'student', trustScore: 98.5, isDemo: true };
+    return null;
   });
 
   const [hubs, setHubs] = useState(() => {
@@ -32,7 +40,7 @@ export default function App() {
   });
 
   const [users, setUsers] = useState([
-    { id: 1, name: 'Aarav Sharma', email: 'aarav.s2025@iimbg.ac.in', role: 'student', trustScore: 98.5 },
+    { id: 1, name: 'Student Rider', email: 'student.2025@iimbg.ac.in', role: 'student', trustScore: 98.5 },
     { id: 2, name: 'Priya Patel', email: 'priya.p2025@iimbg.ac.in', role: 'student', trustScore: 92.0 },
     { id: 3, name: 'Rohan Verma', email: 'rohan.v2025@iimbg.ac.in', role: 'student', trustScore: 100.0 },
     { id: 4, name: 'Sneha Mukherjee', email: 'sneha.m2025@iimbg.ac.in', role: 'student', trustScore: 88.0 },
@@ -49,10 +57,53 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(() => {
+    const saved = localStorage.getItem('campus_user');
+    if (saved && saved !== 'null' && saved !== 'undefined') {
+      try {
+        const p = JSON.parse(saved);
+        if (p?.email && !p?.isDemo && p.email !== 'aarav.s2025@iimbg.ac.in') {
+          return false;
+        }
+      } catch (e) {}
+    }
+    return true; // Prompt login by default if unauthenticated
+  });
+
   const [userLocation, setUserLocation] = useState({ lat: 24.6808, lng: 84.9665 });
   const [completedTripResult, setCompletedTripResult] = useState(null);
   const [trips, setTrips] = useState([]);
+
+  // Purge any legacy demo user on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('campus_user');
+    if (saved) {
+      try {
+        const p = JSON.parse(saved);
+        if (p?.isDemo || p?.email === 'aarav.s2025@iimbg.ac.in') {
+          localStorage.removeItem('campus_user');
+          setCurrentUser(null);
+          setShowAuthModal(true);
+        }
+      } catch (e) {}
+    }
+  }, []);
+
+  // When logged out, clicking anywhere in the application opens the login popup
+  useEffect(() => {
+    if (!currentUser) {
+      const handleGlobalClick = (e) => {
+        const authModal = document.getElementById('campus-auth-modal');
+        if (authModal && authModal.contains(e.target)) {
+          return;
+        }
+        setShowAuthModal(true);
+      };
+
+      window.addEventListener('click', handleGlobalClick, true);
+      return () => window.removeEventListener('click', handleGlobalClick, true);
+    }
+  }, [currentUser]);
 
   // Load persistent data from Cloudflare D1 SQL / API
   useEffect(() => {
@@ -152,8 +203,8 @@ export default function App() {
       startHubId: cycle.hubId || 1,
       startHubName: startHub?.name || 'Main Gate',
       userId: currentUser?.id || 1,
-      userName: currentUser?.name || 'Aarav Sharma',
-      userEmail: currentUser?.email || 'aarav.s2025@iimbg.ac.in'
+      userName: currentUser?.name || currentUser?.email?.split('@')[0] || 'Student Rider',
+      userEmail: currentUser?.email || 'student@iimbg.ac.in'
     };
 
     setActiveTrip(newTrip);
@@ -166,7 +217,7 @@ export default function App() {
   const handleEndTrip = (result) => {
     if (!activeTrip) return;
 
-    const { photoVerified, withinGeofence, endHubId, endHubName, isDemoSimulated } = result;
+    const { photoVerified, photoUrl, withinGeofence, endHubId, endHubName, isDemoSimulated } = result;
 
     // Calculate trip duration for statistics
     let durationSeconds = 0;
@@ -198,8 +249,8 @@ export default function App() {
     const finalEndHubName = (endHubName && endHubName !== 'Campus Hub')
       ? endHubName
       : (targetHub?.name || 'Academic Block');
-    const finalUserName = currentUser?.name || activeTrip.userName || 'Aarav Sharma';
-    const finalUserEmail = currentUser?.email || activeTrip.userEmail || 'aarav.s2025@iimbg.ac.in';
+    const finalUserName = currentUser?.name || activeTrip.userName || currentUser?.email?.split('@')[0] || 'Student Rider';
+    const finalUserEmail = currentUser?.email || activeTrip.userEmail || 'student@iimbg.ac.in';
     const finalUserId = currentUser?.id || activeTrip.userId || 1;
 
     // Update currentUser and persist to D1 safely
@@ -226,6 +277,7 @@ export default function App() {
       endTime: new Date().toISOString(),
       durationMinutes,
       photoVerified: Boolean(photoVerified),
+      photoUrl: photoUrl || null,
       trustDelta,
       withinGeofence: Boolean(withinGeofence),
       status: 'completed'

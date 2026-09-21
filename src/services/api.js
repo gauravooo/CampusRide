@@ -4,7 +4,7 @@
 import { CAMPUS_HUBS, generateInitialTrips } from '../data/initialData';
 
 const INITIAL_USERS = [
-  { id: 1, name: 'Aarav Sharma', email: 'aarav.s2025@iimbg.ac.in', role: 'student', trustScore: 98.5 },
+  { id: 1, name: 'Aditya Verma', email: 'aditya.v2025@iimbg.ac.in', role: 'student', trustScore: 98.5 },
   { id: 2, name: 'Priya Patel', email: 'priya.p2025@iimbg.ac.in', role: 'student', trustScore: 92.0 },
   { id: 3, name: 'Rohan Verma', email: 'rohan.v2025@iimbg.ac.in', role: 'student', trustScore: 100.0 },
   { id: 4, name: 'Sneha Mukherjee', email: 'sneha.m2025@iimbg.ac.in', role: 'student', trustScore: 88.0 },
@@ -253,13 +253,13 @@ export const api = {
       const userName =
         (rawUserName && rawUserName !== 'Campus Student')
           ? rawUserName
-          : (cachedMatch?.userName || matchedUser?.name || 'Aarav Sharma');
+          : (cachedMatch?.userName || matchedUser?.name || 'Campus Rider');
 
       const rawUserEmail = t.user_email || t.userEmail;
       const userEmail =
         (rawUserEmail && rawUserEmail !== 'student@iimbg.ac.in' && rawUserEmail !== '')
           ? rawUserEmail
-          : (cachedMatch?.userEmail || matchedUser?.email || 'aarav.s2025@iimbg.ac.in');
+          : (cachedMatch?.userEmail || matchedUser?.email || 'student@iimbg.ac.in');
 
       const rawStartHub = t.start_hub_name || t.startHubName;
       const startHubName =
@@ -288,6 +288,7 @@ export const api = {
         endTime: t.end_time || t.endTime || cachedMatch?.endTime || new Date().toISOString(),
         durationMinutes: parseFloat(t.duration_minutes || t.durationMinutes || cachedMatch?.durationMinutes) || 5.0,
         photoVerified: Boolean(t.photo_verified ?? t.photoVerified ?? cachedMatch?.photoVerified ?? true),
+        photoUrl: t.photo_url || t.photoUrl || cachedMatch?.photoUrl || null,
         trustDelta,
         withinGeofence,
         status: t.status || cachedMatch?.status || 'completed'
@@ -305,11 +306,17 @@ export const api = {
 
   async saveTrip(trip) {
     let savedTrip = null;
+    const payload = {
+      ...trip,
+      photo_url: trip.photoUrl || trip.photo_url || null,
+      photoUrl: trip.photoUrl || trip.photo_url || null
+    };
+
     try {
       const res = await fetch('/api/trips', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(trip)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         savedTrip = await res.json();
@@ -322,8 +329,8 @@ export const api = {
     const normalizedNew = {
       id: savedTrip?.id || trip.id || Date.now(),
       userId: trip.userId || trip.user_id || 1,
-      userName: trip.userName || trip.user_name || 'Aarav Sharma',
-      userEmail: trip.userEmail || trip.user_email || 'aarav.s2025@iimbg.ac.in',
+      userName: trip.userName || trip.user_name || 'Campus Rider',
+      userEmail: trip.userEmail || trip.user_email || 'student@iimbg.ac.in',
       cycleId: trip.cycleId || trip.cycle_id || 1,
       cycleCode: trip.cycleCode || trip.cycle_code || 'BG-CYCLE-001',
       startHubId: trip.startHubId || trip.start_hub_id || 1,
@@ -334,6 +341,7 @@ export const api = {
       endTime: trip.endTime || trip.end_time || new Date().toISOString(),
       durationMinutes: parseFloat(trip.durationMinutes || trip.duration_minutes) || 5.0,
       photoVerified: Boolean(trip.photoVerified ?? trip.photo_verified),
+      photoUrl: savedTrip?.photo_url || savedTrip?.photoUrl || trip.photoUrl || trip.photo_url || null,
       trustDelta: typeof trip.trustDelta === 'number'
         ? trip.trustDelta
         : (typeof trip.trustScoreDelta === 'number' ? trip.trustScoreDelta : (trip.withinGeofence ? 2.0 : -5.0)),

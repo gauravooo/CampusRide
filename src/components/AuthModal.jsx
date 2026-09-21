@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, Zap, X, AlertTriangle, Lock } from 'lucide-react';
+import { ShieldCheck, X, AlertTriangle, Lock } from 'lucide-react';
 
 const GOOGLE_CLIENT_ID =
   import.meta.env.VITE_GOOGLE_CLIENT_ID ||
@@ -79,42 +79,34 @@ export default function AuthModal({ isOpen, onClose, onLogin }) {
     }
   };
 
-  const handleBypass = (role) => {
-    const targetEmail = role === 'admin' ? 'admin@iimbg.ac.in' : 'aarav.s2025@iimbg.ac.in';
-    const targetName = role === 'admin' ? 'Campus Fleet Admin' : 'Aarav Sharma';
-    onLogin({
-      id: role === 'admin' ? 5 : 1,
-      email: targetEmail,
-      name: targetName,
-      role,
-      trustScore: role === 'admin' ? 100.0 : 98.5,
-      isDemo: true
-    });
-    onClose();
-  };
-
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="glass-card w-full max-w-sm p-6 space-y-4 border-blue-500/40 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+      <div
+        id="campus-auth-modal"
+        className="glass-card w-full max-w-sm p-6 space-y-4 border-blue-500/40 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600/30 flex items-center justify-center text-blue-400 border border-blue-500/30">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600/30 flex items-center justify-center text-blue-400 border border-blue-500/30 shadow-md shadow-blue-500/20">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-white leading-tight">Login with your Campus Account</h3>
-              <p className="text-[10px] text-blue-400 font-mono">Official @iimbg.ac.in Identity</p>
+              <h3 className="text-sm font-black text-white leading-tight">Campus Single Sign-On</h3>
+              <p className="text-[10px] text-blue-400 font-mono font-semibold">Official @iimbg.ac.in Identity</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center border border-white/10 transition"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="w-7 h-7 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center border border-white/10 transition"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {error && (
@@ -125,14 +117,14 @@ export default function AuthModal({ isOpen, onClose, onLogin }) {
         )}
 
         {/* Main Authentication Card */}
-        <div className="p-4 bg-slate-950/90 rounded-2xl border border-white/10 text-center space-y-3">
-          <div className="space-y-1">
+        <div className="p-5 bg-slate-950/90 rounded-2xl border border-white/10 text-center space-y-4">
+          <div className="space-y-1.5">
             <h4 className="text-xs font-bold text-white flex items-center justify-center gap-1.5">
               <Lock className="w-3.5 h-3.5 text-blue-400" />
-              <span>Campus Single Sign-On</span>
+              <span>CampusRide IIM Bodh Gaya</span>
             </h4>
-            <p className="text-[11px] text-slate-400 leading-relaxed max-w-xs mx-auto">
-              Please authenticate using your official <strong>@iimbg.ac.in</strong> account. Personal @gmail.com accounts will be rejected.
+            <p className="text-[11px] text-slate-300 leading-relaxed max-w-xs mx-auto">
+              Please authenticate using your authorized institution account (<strong>@iimbg.ac.in</strong>).
             </p>
           </div>
 
@@ -140,33 +132,11 @@ export default function AuthModal({ isOpen, onClose, onLogin }) {
           <div className="flex justify-center py-2 min-h-[44px]">
             <div ref={googleBtnRef} id="googleSignInDiv"></div>
           </div>
-        </div>
 
-        {/* Demo Quick Access */}
-        <div className="relative py-1 text-center">
-          <span className="text-[10px] text-slate-500 uppercase tracking-widest bg-slate-900 px-2 font-bold">
-            Development Quick Access
-          </span>
-          <div className="absolute inset-0 flex items-center -z-10">
-            <div className="w-full border-t border-white/10"></div>
+          <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-500/20 text-[10px] text-blue-300 space-y-1">
+            <p className="font-semibold text-white">🔒 Enterprise Single Sign-On</p>
+            <p className="text-slate-400">Strictly locked to IIM Bodh Gaya faculty, staff & students. Personal Gmail accounts are blocked.</p>
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => handleBypass('student')}
-            className="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition border border-white/10 flex items-center justify-center gap-1.5"
-          >
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
-            <span>Student Demo</span>
-          </button>
-          <button
-            onClick={() => handleBypass('admin')}
-            className="py-2.5 bg-purple-950/60 hover:bg-purple-900 text-purple-200 rounded-xl text-xs font-bold transition border border-purple-500/30 flex items-center justify-center gap-1.5"
-          >
-            <Zap className="w-3.5 h-3.5 text-purple-400" />
-            <span>Admin Demo</span>
-          </button>
         </div>
       </div>
     </div>

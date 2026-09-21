@@ -299,14 +299,17 @@ export async function onRequestGet(context) {
       try {
         await env.DB.prepare('ALTER TABLE trips ADD COLUMN within_geofence INTEGER DEFAULT 1').run();
       } catch (e) {}
+      try {
+        await env.DB.prepare('ALTER TABLE trips ADD COLUMN photo_url TEXT').run();
+      } catch (e) {}
 
       // Query trips joining users and hubs to guarantee 100% accurate rider names and stations
       const { results } = await env.DB.prepare(`
         SELECT 
           t.id,
           t.user_id,
-          COALESCE(t.user_name, u.name, 'Aarav Sharma') AS user_name,
-          COALESCE(t.user_email, u.email, 'aarav.s2025@iimbg.ac.in') AS user_email,
+          COALESCE(t.user_name, u.name, 'Student Rider') AS user_name,
+          COALESCE(t.user_email, u.email, 'student@iimbg.ac.in') AS user_email,
           t.cycle_id,
           t.cycle_code,
           t.start_hub_id,
@@ -317,6 +320,7 @@ export async function onRequestGet(context) {
           t.end_time,
           t.duration_minutes,
           t.photo_verified,
+          t.photo_url,
           t.trust_score_delta,
           COALESCE(t.within_geofence, CASE WHEN t.trust_score_delta >= 0 THEN 1 ELSE 0 END) AS within_geofence,
           t.status
@@ -359,8 +363,8 @@ export async function onRequestPost(context) {
   try {
     const trip = await request.json();
     const userId = trip.userId || trip.user_id || 1;
-    const userName = trip.userName || trip.user_name || 'Aarav Sharma';
-    const userEmail = trip.userEmail || trip.user_email || 'aarav.s2025@iimbg.ac.in';
+    const userName = trip.userName || trip.user_name || 'Student Rider';
+    const userEmail = trip.userEmail || trip.user_email || 'student@iimbg.ac.in';
     const cycleId = trip.cycleId || trip.cycle_id || 1;
     const cycleCode = trip.cycleCode || trip.cycle_code || 'BG-CYCLE-001';
     const startHubId = trip.startHubId || trip.start_hub_id || 1;
@@ -371,6 +375,7 @@ export async function onRequestPost(context) {
     const endTime = trip.endTime || trip.end_time || new Date().toISOString();
     const durationMinutes = parseFloat(trip.durationMinutes || trip.duration_minutes) || 5.0;
     const photoVerified = trip.photoVerified ? 1 : 0;
+    const photoUrl = trip.photoUrl || trip.photo_url || null;
     const trustScoreDelta = typeof trip.trustScoreDelta === 'number'
       ? trip.trustScoreDelta
       : (typeof trip.trustDelta === 'number' ? trip.trustDelta : (trip.withinGeofence ? 2.0 : -5.0));
@@ -392,6 +397,8 @@ export async function onRequestPost(context) {
       end_time: endTime,
       duration_minutes: durationMinutes,
       photo_verified: photoVerified,
+      photo_url: photoUrl,
+      photoUrl: photoUrl,
       trust_score_delta: trustScoreDelta,
       within_geofence: withinGeofence,
       status
@@ -406,9 +413,10 @@ export async function onRequestPost(context) {
           await env.DB.prepare('ALTER TABLE trips ADD COLUMN start_hub_name TEXT').run();
           await env.DB.prepare('ALTER TABLE trips ADD COLUMN end_hub_name TEXT').run();
           await env.DB.prepare('ALTER TABLE trips ADD COLUMN within_geofence INTEGER DEFAULT 1').run();
+          await env.DB.prepare('ALTER TABLE trips ADD COLUMN photo_url TEXT').run();
         } catch (e) {}
 
-        // Insert complete trip record
+        // Insert complete trip record with direct D1 photo storage
         await env.DB.prepare(`
           INSERT INTO trips (
             user_id, user_name, user_email,
@@ -416,26 +424,26 @@ export async function onRequestPost(context) {
             start_hub_id, start_hub_name,
             end_hub_id, end_hub_name,
             start_time, end_time,
-            duration_minutes, photo_verified,
+            duration_minutes, photo_verified, photo_url,
             trust_score_delta, within_geofence, status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
           userId, userName, userEmail,
           cycleId, cycleCode,
           startHubId, startHubName,
           endHubId, endHubName,
           startTime, endTime,
-          durationMinutes, photoVerified,
+          durationMinutes, photoVerified, photoUrl,
           trustScoreDelta, withinGeofence, status
         ).run();
       } catch (dbErr) {
         console.warn('[D1 Trips Insert Warning, fallback to basic]', dbErr.message);
         try {
           await env.DB.prepare(`
-            INSERT INTO trips (user_id, cycle_id, cycle_code, start_hub_id, end_hub_id, start_time, end_time, duration_minutes, photo_verified, trust_score_delta, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO trips (user_id, cycle_id, cycle_code, start_hub_id, end_hub_id, start_time, end_time, duration_minutes, photo_verified, photo_url, trust_score_delta, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).bind(
-            userId, cycleId, cycleCode, startHubId, endHubId, startTime, endTime, durationMinutes, photoVerified, trustScoreDelta, status
+            userId, cycleId, cycleCode, startHubId, endHubId, startTime, endTime, durationMinutes, photoVerified, photoUrl, trustScoreDelta, status
           ).run();
         } catch (e) {
           console.error('[D1 Trips Fallback Insert Error]', e.message);

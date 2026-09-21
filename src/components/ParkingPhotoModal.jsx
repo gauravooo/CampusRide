@@ -113,13 +113,12 @@ export default function ParkingPhotoModal({
   const [simulateAtHub, setSimulateAtHub] = useState(false);
   const videoRef = useRef(null);
   const mediaStreamRef = useRef(null);
+  const fileInputRef = useRef(null);
 
-  // Check if current user is Demo Account or Fleet Admin
+  // Check if current user is Fleet Admin
   // REAL STUDENTS (Google SSO) strictly do NOT have access to simulation bypass!
   const isDemoOrAdmin = Boolean(
-    currentUser?.isDemo ||
     currentUser?.role === 'admin' ||
-    currentUser?.email === 'aarav.s2025@iimbg.ac.in' ||
     currentUser?.email === 'admin@iimbg.ac.in'
   );
 
@@ -247,24 +246,64 @@ export default function ParkingPhotoModal({
     }
   };
 
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 640;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+
+        // Geotag watermark banner
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.85)';
+        ctx.fillRect(10, h - 52, w - 20, 44);
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(`📍 ${activeHub?.name || 'Campus Hub'} — Verified Rack Parking`, 20, h - 32);
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '10px monospace';
+        ctx.fillText(`${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()} • ${effectiveLocation.lat.toFixed(4)}°N, ${effectiveLocation.lng.toFixed(4)}°E`, 20, h - 14);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.80);
+        setPhotoData(dataUrl);
+        stopCamera();
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleRetake = () => {
     setPhotoData(null);
     startCamera();
   };
 
   const handleSubmit = () => {
-    let finalPhoto = photoData;
-    if (!finalPhoto) {
-      finalPhoto = generateFallbackSnapshot(
-        activeHub?.name || 'Campus Hub',
-        effectiveLocation.lat,
-        effectiveLocation.lng
-      );
-      setPhotoData(finalPhoto);
+    if (!photoData) {
+      alert('Photo Required: You must capture a photo of the parked cycle in the rack before ending the ride.');
+      return;
     }
 
     onSubmitEndTrip({
-      photoVerified: Boolean(finalPhoto),
+      photoVerified: true,
+      photoUrl: photoData,
       withinGeofence: isWithinGeofence,
       endHubId: activeHub?.id || 1,
       endHubName: activeHub?.name || 'Main Gate',
@@ -440,38 +479,72 @@ export default function ParkingPhotoModal({
 
         {/* Actions */}
         <div className="space-y-2">
+          {/* Hidden File Input for Native Mobile Camera / File upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+
           {!photoData ? (
-            <button
-              type="button"
-              onClick={captureSnapshot}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition active:scale-98"
-            >
-              <Aperture className="w-4 h-4" />
-              <span>Snap / Generate Hub Photo</span>
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={captureSnapshot}
+                className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/30 transition active:scale-98"
+              >
+                <Aperture className="w-4 h-4" />
+                <span>Snap Camera</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-extrabold rounded-xl border border-white/10 flex items-center justify-center gap-1.5 transition active:scale-98"
+              >
+                <Camera className="w-4 h-4 text-blue-400" />
+                <span>Upload / Phone</span>
+              </button>
+            </div>
           ) : (
-            <button
-              type="button"
-              onClick={handleRetake}
-              className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-white/10 flex items-center justify-center gap-2 transition"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Retake Photo</span>
-            </button>
+            <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-emerald-950/60 border border-emerald-500/30">
+              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 pl-1">
+                <CheckCircle className="w-4 h-4" />
+                <span>Parking Photo Ready</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleRetake}
+                className="py-1 px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold rounded-lg border border-white/10 flex items-center gap-1 transition"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>Retake</span>
+              </button>
+            </div>
           )}
 
           <button
             type="button"
+            disabled={!photoData}
             onClick={handleSubmit}
             className={`w-full py-3 text-xs font-extrabold rounded-2xl shadow-xl transition flex items-center justify-center gap-2 ${
-              isWithinGeofence
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/30'
-                : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-amber-600/30'
+              !photoData
+                ? 'bg-slate-800 text-slate-500 border border-white/5 cursor-not-allowed opacity-60'
+                : isWithinGeofence
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/30 active:scale-98'
+                : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-amber-600/30 active:scale-98'
             }`}
           >
             <CheckCircle className="w-4 h-4" />
             <span>
-              {isWithinGeofence ? 'Confirm Drop & Complete Ride (+2.0)' : 'Confirm Drop With Warning (-5.0)'}
+              {!photoData
+                ? '📸 Step 1: Snap Parking Photo to End Ride'
+                : isWithinGeofence
+                ? 'Confirm Drop & Complete Ride (+2.0)'
+                : 'Confirm Drop With Warning (-5.0)'}
             </span>
           </button>
         </div>
