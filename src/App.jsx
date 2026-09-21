@@ -407,6 +407,19 @@ export default function App() {
     }
   };
 
+  const handleRebalanceFleet = (updatedCycles) => {
+    if (Array.isArray(updatedCycles)) {
+      setCycles(updatedCycles);
+      localStorage.setItem('campus_cycles', JSON.stringify(updatedCycles));
+    }
+  };
+
+  const handleResetFleet = () => {
+    const fresh = generateInitialCycles();
+    setCycles(fresh);
+    localStorage.setItem('campus_cycles', JSON.stringify(fresh));
+  };
+
   const handleLogin = async (userData) => {
     // 1. Immediately dismiss login popup
     setShowAuthModal(false);
@@ -525,6 +538,8 @@ export default function App() {
                   onAdjustTrustScore={handleAdjustTrustScore}
                   onSaveHub={handleSaveHub}
                   onDeleteHub={handleDeleteHub}
+                  onRebalanceFleet={handleRebalanceFleet}
+                  onResetFleet={handleResetFleet}
                   currentUser={currentUser}
                   onAdminLogin={handleAdminLogin}
                   onLogout={handleLogout}

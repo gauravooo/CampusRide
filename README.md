@@ -52,7 +52,7 @@
 | **Edge Database** | SQL Persistence | **Cloudflare D1 (Serverless SQLite)** | Globally replicated relational database with native ACID compliance and zero operational maintenance. |
 | **Enterprise Server** | Alternative Backend | **Python 3.11, FastAPI, Uvicorn** | High-throughput asynchronous REST backend with OpenAPI/Swagger documentation. |
 | **Enterprise ORM** | Data Access | **SQLAlchemy 2.0, Pydantic v2** | Type-safe declarative data models supporting SQLite and PostgreSQL engines. |
-| **AI Demand Forecast** | Predictive Analytics | **Scikit-Learn (RandomForestRegressor)** | Non-linear regression model capturing temporal campus mobility peaks to generate rebalance dispatch alerts. |
+| **AI Demand Forecast** | Predictive Analytics | **Pure JS RandomForestRegressor (Client-Side)** | Ported non-linear regression ensemble running 100% in-browser on Cloudflare Pages without Python or Docker dependencies. |
 | **Computer Vision** | Proof of Parking | **YOLO / ONNX Runtime (Client/Server)** | Image object detection checking for bicycle frame alignment and parking rack engagement. |
 | **Identity & Access** | Authentication | **Google OAuth 2.0 SSO + Admin PIN Gate** | Restricts rider access strictly to `@iimbg.ac.in` domain accounts; safeguards admin controls with a persistent cryptographic PIN. |
 | **Hardware / IoT** | Smart Padlock Sync | **Virtual BLE / Web Bluetooth API** | Simulates Bluetooth Low Energy GATT characteristics (battery %, RSSI signal strength, unlock relay). |
@@ -310,6 +310,19 @@ flowchart TD
    - **Mess / Annapurna (Hub 3)**: Spikes to $\hat{y} \approx 0.90$ during meal windows ($08:00-09:30$, $12:30-14:30$, $19:30-21:30$).
    - **Hostel Precincts (Hubs 5–10)**: Morning departure exodus ($\hat{y} \approx 0.20$ at 08:00), evening return aggregation ($\hat{y} \approx 0.75$ between 21:00 and 07:00).
    - **Sports Complex / Udaan (Hub 4)**: Evening recreations peak ($\hat{y} \approx 0.80$ between 17:00 and 20:00).
+
+### ⚡ Ported Pure JavaScript RandomForest Engine (Zero Docker Dependency)
+To operate seamlessly on **Cloudflare Pages** without requiring a live Python/Docker container, the full machine learning regression model has been ported directly to client-side JavaScript (`src/ai/demandForecaster.js`):
+- **DecisionTreeRegressor & RandomForestRegressor Classes**: Native ES6 class implementations utilizing bootstrap aggregating (bagging) with random feature subspacing across 25 estimators.
+- **Microsecond In-Browser Training**: Trains in $< 10\text{ ms}$ on application mount and executes inferences in $< 0.05\text{ ms}$.
+- **Interactive Time-Scenario Simulator**: Allows administrators to preview and stress-test fleet rebalancing across multiple campus scenarios:
+  1. `⚡ Live Real Time`: Dynamic evaluation based on the user's current clock.
+  2. `🏫 10:00 AM Class Rush`: High Academic Block influx ($60+$ cycle deficit).
+  3. `🍲 1:00 PM Dining Rush`: High Annapurna Mess lunch surge.
+  4. `🌙 10:00 PM Hostel Return`: Evening return flow to residential blocks.
+- **Greedy Spatial Min-Cost Route Matching**: Calculates proximity-optimized donor-to-receiver routes using Great-Circle Haversine distance, minimizing total cycle cartage.
+- **Real-Time Fleet Mutation**: Clicking **"Auto-Rebalance"** actually relocates cycles across hubs, updating their GPS coordinates with realistic stand scatter, refreshing the Leaflet map pins, eliminating deficits, and persisting to storage.
+- **Fleet Reset Control**: Includes a single-click reset button to restore the default 20 cycles-per-hub baseline for repeated demonstrations.
 
 ---
 

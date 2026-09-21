@@ -33,48 +33,9 @@ export function findNearestHub(userLat, userLng, hubs) {
   return { nearestHub, distanceMeters: minDistance };
 }
 
-export function predictHubDemands(hubs, cycles) {
-  if (!Array.isArray(hubs) || hubs.length === 0) return [];
-  const safeCycles = Array.isArray(cycles) ? cycles : [];
+export {
+  predictHubDemands,
+  generateRebalancePlan,
+  executeRebalancePlan
+} from '../ai/demandForecaster';
 
-  const now = new Date();
-  const hour = now.getHours();
-  const isWeekend = now.getDay() === 0 || now.getDay() === 6;
-
-  return hubs.map((hub) => {
-    const currentCount = safeCycles.filter(
-      (c) => c.hubId === hub.id && c.status === 'available'
-    ).length;
-
-    // Simulated RandomForest predictor logic based on time of day & hub type
-    let demandRatio = 0.35;
-    if (hub.id === 2 && hour >= 8 && hour <= 17 && !isWeekend) demandRatio = 0.85; // Academic Block
-    else if (hub.id === 3 && [8, 9, 13, 14, 20, 21].includes(hour)) demandRatio = 0.90; // Mess
-    else if ([5, 6, 7, 8, 9, 10].includes(hub.id) && (hour >= 21 || hour <= 8)) demandRatio = 0.75; // Hostels
-    else if (hub.id === 4 && hour >= 17 && hour <= 20) demandRatio = 0.80; // Sports complex
-
-    const predictedDemand = Math.round(demandRatio * hub.capacity);
-    const deficit = Math.max(0, predictedDemand - currentCount);
-
-    let severity = 'low';
-    if (deficit >= 6) severity = 'critical';
-    else if (deficit >= 4) severity = 'high';
-    else if (deficit >= 2) severity = 'medium';
-
-    const recommendedAction =
-      deficit > 0
-        ? `Rebalance Alert: Move +${deficit} cycles to ${hub.name} to meet expected peak demand.`
-        : 'Optimal fleet distribution.';
-
-    return {
-      hubId: hub.id,
-      hubName: hub.name,
-      capacity: hub.capacity,
-      currentCount,
-      predictedDemand,
-      deficit,
-      severity,
-      recommendedAction,
-    };
-  }).sort((a, b) => b.deficit - a.deficit);
-}

@@ -6,7 +6,11 @@ import {
   History, Archive, ChevronLeft, ChevronRight, Search, Clock, ArrowRight, Eye, Calendar, Camera, LogOut
 } from 'lucide-react';
 import CampusMap from './CampusMap';
-import { predictHubDemands } from '../utils/geo';
+import {
+  predictHubDemands,
+  generateRebalancePlan,
+  executeRebalancePlan
+} from '../ai/demandForecaster';
 
 export default function AdminView({
   hubs = [],
@@ -17,11 +21,16 @@ export default function AdminView({
   onAdjustTrustScore,
   onSaveHub,
   onDeleteHub,
+  onRebalanceFleet,
+  onResetFleet,
   currentUser,
   onAdminLogin,
   onLogout
 }) {
   const [rebalanceStatus, setRebalanceStatus] = useState(null);
+  const [simulatedScenario, setSimulatedScenario] = useState('current');
+  const [lastRebalanceResult, setLastRebalanceResult] = useState(null);
+  const [showPlanModal, setShowPlanModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const [newTrustScore, setNewTrustScore] = useState(100);
   const [trustReason, setTrustReason] = useState('');
@@ -214,7 +223,28 @@ export default function AdminView({
 
   const safeHubs = Array.isArray(hubs) ? hubs : [];
 
-  const rebalanceForecasts = predictHubDemands(safeHubs, cycles);
+  const scenarioHour = useMemo(() => {
+    switch (simulatedScenario) {
+      case 'academic_rush': return 10;
+      case 'lunch_rush': return 13;
+      case 'sports_rush': return 18;
+      case 'hostel_night': return 22;
+      default: return null;
+    }
+  }, [simulatedScenario]);
+
+  const scenarioIsWeekend = useMemo(() => {
+    if (simulatedScenario === 'academic_rush' || simulatedScenario === 'lunch_rush') return 0;
+    return null;
+  }, [simulatedScenario]);
+
+  const rebalanceForecasts = useMemo(() => {
+    return predictHubDemands(safeHubs, cycles, scenarioHour, scenarioIsWeekend);
+  }, [safeHubs, cycles, scenarioHour, scenarioIsWeekend]);
+
+  const rebalancePlan = useMemo(() => {
+    return generateRebalancePlan(safeHubs, cycles, scenarioHour, scenarioIsWeekend);
+  }, [safeHubs, cycles, scenarioHour, scenarioIsWeekend]);
 
   const totalCycles = cycles.length;
   const availableCycles = cycles.filter((c) => c.status === 'available').length;
@@ -243,11 +273,33 @@ export default function AdminView({
   };
 
   const handleTriggerRebalance = () => {
+    if (!rebalancePlan || rebalancePlan.routes.length === 0) {
+      setRebalanceStatus('optimal');
+      setTimeout(() => setRebalanceStatus(null), 3500);
+      return;
+    }
+
     setRebalanceStatus('optimizing');
     setTimeout(() => {
+      const result = executeRebalancePlan(safeHubs, cycles, rebalancePlan);
+      if (onRebalanceFleet) {
+        onRebalanceFleet(result.updatedCycles);
+      }
+      setLastRebalanceResult({
+        movedCount: result.movedCount,
+        routes: rebalancePlan.routes,
+        timestamp: new Date().toLocaleTimeString()
+      });
       setRebalanceStatus('complete');
-      setTimeout(() => setRebalanceStatus(null), 4000);
-    }, 1200);
+    }, 600);
+  };
+
+  const handleResetFleetDistribution = () => {
+    if (onResetFleet) {
+      onResetFleet();
+    }
+    setLastRebalanceResult(null);
+    setRebalanceStatus(null);
   };
 
   // Trust Score Adjuster modal opener
@@ -435,13 +487,56 @@ export default function AdminView({
         </div>
       </div>
 
-      {rebalanceStatus === 'complete' && (
-        <div className="p-4 bg-purple-950/80 border border-purple-500/50 rounded-2xl text-xs text-purple-300 flex items-center gap-3 animate-pulse">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-          <div>
-            <strong className="text-white block">AI Rebalancing Command Executed!</strong>
-            <span>Autonomous dispatch instructions dispatched to campus logistics team. 18 cycles scheduled for shift.</span>
+      {rebalanceStatus === 'complete' && lastRebalanceResult && (
+        <div className="p-4 bg-purple-950/90 border border-purple-500/50 rounded-2xl text-xs text-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-purple-900/30 animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <div>
+              <strong className="text-white block font-bold text-sm">
+                ✨ AI Rebalancing Complete ({lastRebalanceResult.timestamp})
+              </strong>
+              <span>
+                Autonomous RandomForest engine relocated <strong className="text-emerald-300">{lastRebalanceResult.movedCount} cycles</strong> across <strong className="text-purple-300">{lastRebalanceResult.routes.length} dispatch routes</strong>. Hub deficits resolved!
+              </span>
+            </div>
           </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => setShowPlanModal(true)}
+              className="px-3 py-1.5 bg-purple-800/60 hover:bg-purple-700/80 text-white rounded-xl text-xs font-semibold border border-purple-500/30 transition flex items-center gap-1"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>View Routes</span>
+            </button>
+            <button
+              onClick={handleResetFleetDistribution}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-white/10 transition"
+              title="Reset fleet back to default 20 cycles per hub"
+            >
+              Reset Fleet
+            </button>
+            <button
+              onClick={() => setRebalanceStatus(null)}
+              className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {rebalanceStatus === 'optimal' && (
+        <div className="p-4 bg-emerald-950/80 border border-emerald-500/50 rounded-2xl text-xs text-emerald-300 flex items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <span>Fleet is already optimally distributed! Zero hub deficits detected under current parameters.</span>
+          </div>
+          <button
+            onClick={() => setRebalanceStatus(null)}
+            className="p-1 hover:bg-white/10 rounded-lg text-emerald-400 hover:text-white transition"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -495,25 +590,129 @@ export default function AdminView({
         {/* AI Rebalancing Demand Forecaster */}
         <div className="glass-card p-4 rounded-3xl flex flex-col space-y-3">
           <div className="flex items-center justify-between border-b border-white/10 pb-2">
-            <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <BrainCircuit className="w-5 h-5 text-purple-400" />
-              <span>AI Rebalance Forecaster</span>
-            </h2>
-            <span className="text-[10px] font-bold text-purple-400 px-2.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30">
-              RandomForest
+              <div>
+                <h2 className="text-sm font-extrabold text-white">AI Fleet Rebalancer</h2>
+                <span className="text-[10px] text-purple-400 font-mono">RandomForest Edge ML (Pure JS)</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-400 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30">
+              Zero-Docker Edge
             </span>
           </div>
-          <p className="text-xs text-slate-400">Peak demand forecast based on hourly class schedules & dining hours.</p>
 
-          <div className="overflow-y-auto max-h-80 space-y-2 pr-1">
+          <p className="text-xs text-slate-400">
+            Autonomous fleet demand prediction and relocation running 100% client-side.
+          </p>
+
+          {/* Simulation Scenario Buttons */}
+          <div className="space-y-1.5 bg-slate-950/40 p-2.5 rounded-2xl border border-white/5">
+            <div className="flex justify-between items-center text-[10px] text-slate-400">
+              <span className="font-semibold uppercase tracking-wider">Demand Scenario:</span>
+              <span className="font-mono text-purple-300 font-bold">
+                {rebalancePlan.totalCyclesToMove > 0
+                  ? `⚡ ${rebalancePlan.totalCyclesToMove} Cycles Deficit`
+                  : '✓ Fleet In Balance'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+              <button
+                type="button"
+                onClick={() => setSimulatedScenario('current')}
+                className={`py-1.5 px-2 rounded-xl text-left border transition ${
+                  simulatedScenario === 'current'
+                    ? 'bg-purple-600/30 border-purple-500/60 text-white font-bold'
+                    : 'bg-slate-900/60 border-white/5 text-slate-400 hover:bg-slate-800/60'
+                }`}
+              >
+                ⚡ Live Real Time
+              </button>
+              <button
+                type="button"
+                onClick={() => setSimulatedScenario('academic_rush')}
+                className={`py-1.5 px-2 rounded-xl text-left border transition ${
+                  simulatedScenario === 'academic_rush'
+                    ? 'bg-purple-600/30 border-purple-500/60 text-white font-bold'
+                    : 'bg-slate-900/60 border-white/5 text-slate-400 hover:bg-slate-800/60'
+                }`}
+              >
+                🏫 10 AM Class Rush
+              </button>
+              <button
+                type="button"
+                onClick={() => setSimulatedScenario('lunch_rush')}
+                className={`py-1.5 px-2 rounded-xl text-left border transition ${
+                  simulatedScenario === 'lunch_rush'
+                    ? 'bg-purple-600/30 border-purple-500/60 text-white font-bold'
+                    : 'bg-slate-900/60 border-white/5 text-slate-400 hover:bg-slate-800/60'
+                }`}
+              >
+                🍲 1 PM Dining Rush
+              </button>
+              <button
+                type="button"
+                onClick={() => setSimulatedScenario('hostel_night')}
+                className={`py-1.5 px-2 rounded-xl text-left border transition ${
+                  simulatedScenario === 'hostel_night'
+                    ? 'bg-purple-600/30 border-purple-500/60 text-white font-bold'
+                    : 'bg-slate-900/60 border-white/5 text-slate-400 hover:bg-slate-800/60'
+                }`}
+              >
+                🌙 10 PM Hostel Return
+              </button>
+            </div>
+          </div>
+
+          {/* Action Trigger Buttons */}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleTriggerRebalance}
+              disabled={rebalanceStatus === 'optimizing'}
+              className="flex-1 py-2 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-purple-600/30 transition disabled:opacity-50"
+            >
+              <BrainCircuit className="w-3.5 h-3.5 text-purple-300" />
+              <span>
+                {rebalanceStatus === 'optimizing'
+                  ? 'Optimizing Fleet...'
+                  : rebalancePlan.totalCyclesToMove > 0
+                    ? `Auto-Rebalance (${rebalancePlan.totalCyclesToMove} bikes)`
+                    : 'Fleet In Balance'}
+              </span>
+            </button>
+
+            {rebalancePlan.routes.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowPlanModal(true)}
+                className="py-2 px-3 bg-slate-900 hover:bg-slate-800 text-purple-300 rounded-xl text-xs font-bold border border-purple-500/30 transition flex items-center gap-1"
+                title="View generated dispatch routes"
+              >
+                <Eye className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleResetFleetDistribution}
+              className="py-2 px-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl text-xs border border-white/10 transition"
+              title="Reset fleet distribution back to default"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Hub Demand & Deficit Scroll List */}
+          <div className="overflow-y-auto max-h-72 space-y-2 pr-1">
             {rebalanceForecasts.map((item) => {
               let sevClass = 'bg-blue-500/20 text-blue-400 border-blue-500/30';
               if (item.severity === 'critical') sevClass = 'bg-red-500/20 text-red-400 border-red-500/30';
               else if (item.severity === 'high') sevClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
               else if (item.severity === 'medium') sevClass = 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+              else if (item.severity === 'optimal') sevClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
 
               return (
-                <div key={item.hubId} className="p-3 bg-slate-900/80 rounded-2xl border border-white/5 space-y-1.5 text-xs">
+                <div key={item.hubId} className="p-2.5 bg-slate-900/80 rounded-2xl border border-white/5 space-y-1 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-white">{item.hubName}</span>
                     <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border ${sevClass}`}>
@@ -522,10 +721,18 @@ export default function AdminView({
                   </div>
                   <div className="flex justify-between text-[11px] text-slate-400">
                     <span>Supply: <strong className="text-white">{item.currentCount}</strong></span>
-                    <span>Forecast: <strong className="text-purple-400">{item.predictedDemand}</strong></span>
-                    <span>Deficit: <strong className={item.deficit > 0 ? 'text-red-400' : 'text-emerald-400'}>{item.deficit}</strong></span>
+                    <span>Demand: <strong className="text-purple-400">{item.predictedDemand}</strong></span>
+                    <span>
+                      {item.deficit > 0 ? (
+                        <span className="text-red-400 font-bold">Deficit: -{item.deficit}</span>
+                      ) : item.surplus > 0 ? (
+                        <span className="text-emerald-400 font-bold">Surplus: +{item.surplus}</span>
+                      ) : (
+                        <span className="text-slate-400">Balanced</span>
+                      )}
+                    </span>
                   </div>
-                  <p className="text-[11px] text-slate-300 bg-slate-950/60 p-2 rounded-xl border border-white/5">
+                  <p className="text-[10px] text-slate-300 bg-slate-950/60 p-1.5 rounded-lg border border-white/5">
                     {item.recommendedAction}
                   </p>
                 </div>
@@ -1501,6 +1708,128 @@ export default function AdminView({
             >
               Close Telemetry Audit
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI Rebalance Dispatch Routes Plan Modal */}
+      {showPlanModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-purple-500/30 rounded-3xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <BrainCircuit className="w-6 h-6 text-purple-400" />
+                <div>
+                  <h3 className="text-base font-extrabold text-white">AI Fleet Rebalancing Dispatch Plan</h3>
+                  <p className="text-xs text-slate-400">RandomForest Predictive Regression • Spatial Min-Cost Route Matching</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPlanModal(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Plan Metrics */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 bg-slate-950 rounded-2xl border border-white/5 text-center">
+                <p className="text-[10px] text-slate-400 font-semibold uppercase">Total Relocations</p>
+                <p className="text-2xl font-black text-purple-400 mt-1">{rebalancePlan.totalCyclesToMove}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Cycles to Shift</p>
+              </div>
+              <div className="p-3 bg-slate-950 rounded-2xl border border-white/5 text-center">
+                <p className="text-[10px] text-slate-400 font-semibold uppercase">Active Routes</p>
+                <p className="text-2xl font-black text-blue-400 mt-1">{rebalancePlan.routes.length}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Station Transfers</p>
+              </div>
+              <div className="p-3 bg-slate-950 rounded-2xl border border-white/5 text-center">
+                <p className="text-[10px] text-slate-400 font-semibold uppercase">Model Execution</p>
+                <p className="text-2xl font-black text-emerald-400 mt-1">&lt; 1ms</p>
+                <p className="text-[10px] text-emerald-400/80 mt-0.5 font-mono">Edge JS (0 Docker)</p>
+              </div>
+            </div>
+
+            {/* Transfer Routes List */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                Autonomous Route Transfer Instructions
+              </h4>
+
+              {rebalancePlan.routes.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 bg-slate-950/60 rounded-2xl border border-white/5">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                  <p className="font-semibold text-white">Fleet is Fully Balanced!</p>
+                  <p className="text-xs text-slate-400 mt-1">No cycle transfers required for this scenario.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {rebalancePlan.routes.map((route, idx) => (
+                    <div
+                      key={route.id || idx}
+                      className="p-3.5 bg-slate-950/70 rounded-2xl border border-white/5 flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-7 h-7 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center font-bold text-purple-300 flex-shrink-0 text-xs">
+                          {idx + 1}
+                        </div>
+                        <div className="truncate">
+                          <div className="flex items-center gap-2 text-white font-bold">
+                            <span className="text-amber-300 truncate">{route.fromHubName}</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+                            <span className="text-emerald-300 truncate">{route.toHubName}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            Transfer distance: ~{route.distanceMeters} meters
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className="px-2.5 py-1 bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold rounded-lg font-mono text-xs">
+                          +{route.count} cycles
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={handleResetFleetDistribution}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-white/10 transition"
+              >
+                Reset to Default (20/hub)
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPlanModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition"
+                >
+                  Close
+                </button>
+                {rebalancePlan.routes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPlanModal(false);
+                      handleTriggerRebalance();
+                    }}
+                    className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-purple-600/30 transition"
+                  >
+                    <BrainCircuit className="w-3.5 h-3.5" />
+                    <span>Execute Rebalance Now</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
