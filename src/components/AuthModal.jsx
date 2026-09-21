@@ -5,13 +5,26 @@ const GOOGLE_CLIENT_ID =
   import.meta.env.VITE_GOOGLE_CLIENT_ID ||
   '509461351344-5oi514h56p57nuj2vhlq426grv3ejjv4.apps.googleusercontent.com';
 
-export default function AuthModal({ isOpen, onClose, onLogin }) {
+export default function AuthModal({ isOpen, onClose, onLogin, onAdminLogin }) {
   const [error, setError] = useState('');
+  const [showAdminPin, setShowAdminPin] = useState(false);
+  const [adminPin, setAdminPin] = useState('');
+  const [adminPinError, setAdminPinError] = useState('');
   const googleBtnRef = useRef(null);
+
+  // Reset local states on open
+  useEffect(() => {
+    if (isOpen) {
+      setError('');
+      setAdminPinError('');
+      setAdminPin('');
+      setShowAdminPin(false);
+    }
+  }, [isOpen]);
 
   // Initialize Google Identity Services
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || showAdminPin) return;
 
     if (window.google && window.google.accounts && GOOGLE_CLIENT_ID) {
       try {
@@ -36,7 +49,7 @@ export default function AuthModal({ isOpen, onClose, onLogin }) {
         console.warn('[GIS Init Error]', err);
       }
     }
-  }, [isOpen]);
+  }, [isOpen, showAdminPin]);
 
   const handleGoogleCredentialResponse = (response) => {
     setError('');
@@ -73,9 +86,21 @@ export default function AuthModal({ isOpen, onClose, onLogin }) {
         trustScore: 100.0,
         isDemo: false
       });
-      onClose();
+      if (onClose) onClose();
     } catch (e) {
       setError('Failed to process authentication response.');
+    }
+  };
+
+  const handleAdminPinSubmit = (e) => {
+    e.preventDefault();
+    if (adminPin === '8888' || adminPin === 'admin2026') {
+      setAdminPinError('');
+      if (onAdminLogin) {
+        onAdminLogin();
+      }
+    } else {
+      setAdminPinError('Invalid Admin Passcode. Fleet staff only.');
     }
   };
 
@@ -90,12 +115,20 @@ export default function AuthModal({ isOpen, onClose, onLogin }) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600/30 flex items-center justify-center text-blue-400 border border-blue-500/30 shadow-md shadow-blue-500/20">
-              <ShieldCheck className="w-5 h-5" />
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border shadow-md ${
+              showAdminPin
+                ? 'bg-purple-600/30 text-purple-400 border-purple-500/30 shadow-purple-500/20'
+                : 'bg-blue-600/30 text-blue-400 border-blue-500/30 shadow-blue-500/20'
+            }`}>
+              {showAdminPin ? <Lock className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="text-sm font-black text-white leading-tight">Campus Single Sign-On</h3>
-              <p className="text-[10px] text-blue-400 font-mono font-semibold">Official @iimbg.ac.in Identity</p>
+              <h3 className="text-sm font-black text-white leading-tight">
+                {showAdminPin ? 'Fleet Operations Staff' : 'Campus Single Sign-On'}
+              </h3>
+              <p className={`text-[10px] font-mono font-semibold ${showAdminPin ? 'text-purple-400' : 'text-blue-400'}`}>
+                {showAdminPin ? 'Secure Staff PIN Access' : 'Official @iimbg.ac.in Identity'}
+              </p>
             </div>
           </div>
           {onClose && (
@@ -116,28 +149,95 @@ export default function AuthModal({ isOpen, onClose, onLogin }) {
           </div>
         )}
 
-        {/* Main Authentication Card */}
-        <div className="p-5 bg-slate-950/90 rounded-2xl border border-white/10 text-center space-y-4">
-          <div className="space-y-1.5">
-            <h4 className="text-xs font-bold text-white flex items-center justify-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-blue-400" />
-              <span>CampusRide IIM Bodh Gaya</span>
-            </h4>
-            <p className="text-[11px] text-slate-300 leading-relaxed max-w-xs mx-auto">
-              Please authenticate using your authorized institution account (<strong>@iimbg.ac.in</strong>).
-            </p>
-          </div>
+        {showAdminPin ? (
+          /* Admin PIN Input Form */
+          <div className="p-5 bg-slate-950/90 rounded-2xl border border-purple-500/30 text-center space-y-4">
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-bold text-white flex items-center justify-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-purple-400" />
+                <span>Admin Passcode Verification</span>
+              </h4>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                Enter your authorized 4-digit fleet PIN to unlock command portal.
+              </p>
+            </div>
 
-          {/* Google Identity Services Render Target */}
-          <div className="flex justify-center py-2 min-h-[44px]">
-            <div ref={googleBtnRef} id="googleSignInDiv"></div>
-          </div>
+            <form onSubmit={handleAdminPinSubmit} className="space-y-3">
+              <div>
+                <input
+                  type="password"
+                  placeholder="Enter PIN"
+                  value={adminPin}
+                  onChange={(e) => setAdminPin(e.target.value)}
+                  className="w-full glass-input text-center text-xl tracking-widest font-mono rounded-xl py-2.5 focus:border-purple-400"
+                  autoFocus
+                />
+                {adminPinError && (
+                  <p className="text-[11px] text-amber-400 mt-1 font-semibold">{adminPinError}</p>
+                )}
+              </div>
 
-          <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-500/20 text-[10px] text-blue-300 space-y-1">
-            <p className="font-semibold text-white">🔒 Enterprise Single Sign-On</p>
-            <p className="text-slate-400">Strictly locked to IIM Bodh Gaya faculty, staff & students. Personal Gmail accounts are blocked.</p>
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs rounded-xl transition shadow-lg shadow-purple-600/30"
+              >
+                Log In as Fleet Admin
+              </button>
+            </form>
+
+            <div className="pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdminPin(false);
+                  setAdminPinError('');
+                }}
+                className="text-xs text-blue-400 hover:text-blue-300 font-semibold transition"
+              >
+                ← Back to Student SSO
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Main Authentication Card */
+          <div className="p-5 bg-slate-950/90 rounded-2xl border border-white/10 text-center space-y-4">
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-bold text-white flex items-center justify-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-blue-400" />
+                <span>CampusRide IIM Bodh Gaya</span>
+              </h4>
+              <p className="text-[11px] text-slate-300 leading-relaxed max-w-xs mx-auto">
+                Please authenticate using your authorized institution account (<strong>@iimbg.ac.in</strong>).
+              </p>
+            </div>
+
+            {/* Google Identity Services Render Target */}
+            <div className="flex justify-center py-2 min-h-[44px]">
+              <div ref={googleBtnRef} id="googleSignInDiv"></div>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-500/20 text-[10px] text-blue-300 space-y-1">
+              <p className="font-semibold text-white">🔒 Enterprise Single Sign-On</p>
+              <p className="text-slate-400">Strictly locked to IIM Bodh Gaya faculty, staff & students. Personal Gmail accounts are blocked.</p>
+            </div>
+
+            {onAdminLogin && (
+              <div className="pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError('');
+                    setShowAdminPin(true);
+                  }}
+                  className="text-xs text-purple-400 hover:text-purple-300 font-semibold flex items-center justify-center gap-1.5 mx-auto transition"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Fleet Operations Staff? Log In with PIN</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

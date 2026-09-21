@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import StudentView from './components/StudentView';
 import AdminView from './components/AdminView';
@@ -9,8 +9,11 @@ import { api } from './services/api';
 import TripCompleteModal from './components/TripCompleteModal';
 
 export default function App() {
+  const navigate = useNavigate();
+
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('campus_user');
+    const adminUnlocked = localStorage.getItem('admin_unlocked') === 'true';
     if (saved && saved !== 'null' && saved !== 'undefined') {
       try {
         const parsed = JSON.parse(saved);
@@ -24,6 +27,16 @@ export default function App() {
           return parsed;
         }
       } catch (e) {}
+    }
+    if (adminUnlocked) {
+      return {
+        id: 999,
+        name: 'Campus Fleet Admin',
+        email: 'admin@iimbg.ac.in',
+        role: 'admin',
+        trustScore: 100.0,
+        isAdminPinAuth: true
+      };
     }
     return null;
   });
@@ -58,6 +71,11 @@ export default function App() {
   });
 
   const [showAuthModal, setShowAuthModal] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+      return false;
+    }
+    const adminUnlocked = localStorage.getItem('admin_unlocked') === 'true';
+    if (adminUnlocked) return false;
     const saved = localStorage.getItem('campus_user');
     if (saved && saved !== 'null' && saved !== 'undefined') {
       try {
@@ -89,10 +107,14 @@ export default function App() {
     }
   }, []);
 
-  // When logged out, clicking anywhere in the application opens the login popup and cancels any underlying action
+  // When logged out, clicking anywhere outside the admin route opens the login popup and cancels underlying action
   useEffect(() => {
     if (!currentUser) {
       const handleGlobalClick = (e) => {
+        // If user is accessing the /admin route (entering Admin PIN), do not block them
+        if (window.location.pathname.startsWith('/admin')) {
+          return;
+        }
         const authModal = document.getElementById('campus-auth-modal');
         if (authModal && authModal.contains(e.target)) {
           return;
@@ -204,6 +226,10 @@ export default function App() {
   const handleStartTrip = (cycle) => {
     if (!currentUser) {
       setShowAuthModal(true);
+      return;
+    }
+    if (currentUser.role === 'admin') {
+      alert('Admin Mode: Fleet administrators cannot start rides. Please log out and sign in with a student account to ride.');
       return;
     }
     const startHub = hubs.find((h) => String(h.id) === String(cycle.hubId));
@@ -405,9 +431,27 @@ export default function App() {
     });
   };
 
+  const handleAdminLogin = () => {
+    const adminUser = {
+      id: 999,
+      name: 'Campus Fleet Admin',
+      email: 'admin@iimbg.ac.in',
+      role: 'admin',
+      trustScore: 100.0,
+      isAdminPinAuth: true
+    };
+    setCurrentUser(adminUser);
+    localStorage.setItem('campus_user', JSON.stringify(adminUser));
+    localStorage.setItem('admin_unlocked', 'true');
+    setShowAuthModal(false);
+    navigate('/admin');
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('campus_user');
+    localStorage.removeItem('admin_unlocked');
     setCurrentUser(null);
+    navigate('/');
     setShowAuthModal(true);
   };
 
@@ -424,16 +468,20 @@ export default function App() {
           <Route
             path="/"
             element={
-              <StudentView
-                currentUser={currentUser}
-                hubs={hubs}
-                cycles={cycles}
-                activeTrip={activeTrip}
-                onStartTrip={handleStartTrip}
-                onEndTrip={handleEndTrip}
-                userLocation={userLocation}
-                onRequireAuth={() => setShowAuthModal(true)}
-              />
+              currentUser?.role === 'admin' ? (
+                <Navigate to="/admin" replace />
+              ) : (
+                <StudentView
+                  currentUser={currentUser}
+                  hubs={hubs}
+                  cycles={cycles}
+                  activeTrip={activeTrip}
+                  onStartTrip={handleStartTrip}
+                  onEndTrip={handleEndTrip}
+                  userLocation={userLocation}
+                  onRequireAuth={() => setShowAuthModal(true)}
+                />
+              )
             }
           />
           <Route
@@ -449,6 +497,8 @@ export default function App() {
                 onSaveHub={handleSaveHub}
                 onDeleteHub={handleDeleteHub}
                 currentUser={currentUser}
+                onAdminLogin={handleAdminLogin}
+                onLogout={handleLogout}
               />
             }
           />
@@ -456,9 +506,10 @@ export default function App() {
       </main>
 
       <AuthModal
-        isOpen={showAuthModal || !currentUser}
+        isOpen={showAuthModal && (!currentUser || currentUser.role !== 'admin')}
         onClose={currentUser ? () => setShowAuthModal(false) : null}
         onLogin={handleLogin}
+        onAdminLogin={handleAdminLogin}
       />
 
       <TripCompleteModal

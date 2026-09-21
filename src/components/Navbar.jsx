@@ -10,7 +10,7 @@ export default function Navbar({ currentUser, onOpenAuth, onLogout }) {
   return (
     <nav className="glass-card p-3.5 rounded-3xl flex items-center justify-between border border-blue-500/20 bg-slate-900/90 shadow-xl mb-4 relative z-40">
       {/* Brand Logo & IIMBG Tag */}
-      <Link to="/" className="flex items-center space-x-3 group">
+      <Link to={currentUser?.role === 'admin' ? '/admin' : '/'} className="flex items-center space-x-3 group">
         <div className="w-10 h-10 rounded-2xl bg-blue-600/30 group-hover:bg-blue-600/40 flex items-center justify-center text-blue-400 border border-blue-500/30 shadow transition">
           <Bike className="w-5 h-5" />
         </div>
@@ -35,32 +35,50 @@ export default function Navbar({ currentUser, onOpenAuth, onLogout }) {
       </div>
 
       <div className="flex items-center space-x-2 sm:space-x-3">
-        {/* Navigation Route Tabs */}
-        <div className="flex bg-slate-950 p-1 rounded-2xl border border-white/10 text-xs font-bold shadow-inner">
-          <Link
-            to="/"
-            className={`px-3 sm:px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition ${
-              !isAdminRoute
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Rider</span>
-          </Link>
+        {currentUser?.role === 'admin' ? (
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1.5 rounded-2xl bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold flex items-center gap-1.5 shadow-inner">
+              <Shield className="w-3.5 h-3.5 text-purple-400" />
+              <span>Fleet Admin</span>
+            </span>
+            <button
+              onClick={onLogout}
+              className="px-3 py-1.5 bg-red-950/50 hover:bg-red-900/60 text-red-300 rounded-2xl text-xs font-bold border border-red-500/30 flex items-center gap-1.5 transition shadow"
+              title="Log out of Admin to sign in as Rider"
+            >
+              <LogOut className="w-3.5 h-3.5 text-red-400" />
+              <span className="hidden sm:inline">Log Out to Ride</span>
+              <span className="sm:hidden">Log Out</span>
+            </button>
+          </div>
+        ) : (
+          /* Navigation Route Tabs */
+          <div className="flex bg-slate-950 p-1 rounded-2xl border border-white/10 text-xs font-bold shadow-inner">
+            <Link
+              to="/"
+              className={`px-3 sm:px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition ${
+                !isAdminRoute
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Rider</span>
+            </Link>
 
-          <Link
-            to="/admin"
-            className={`px-3 sm:px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition ${
-              isAdminRoute
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <LayoutDashboard className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Admin</span>
-          </Link>
-        </div>
+            <Link
+              to="/admin"
+              className={`px-3 sm:px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition ${
+                isAdminRoute
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Admin</span>
+            </Link>
+          </div>
+        )}
 
         {/* User Account / Profile Button */}
         {currentUser ? (
@@ -110,27 +128,42 @@ export default function Navbar({ currentUser, onOpenAuth, onLogout }) {
                 </div>
 
                 <div className="space-y-1 pt-1">
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onOpenAuth();
-                    }}
-                    className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition flex items-center justify-center gap-1.5"
-                  >
-                    <User className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Switch Campus Account</span>
-                  </button>
+                  {currentUser.role === 'admin' ? (
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onLogout();
+                      }}
+                      className="w-full py-2 bg-red-950/40 hover:bg-red-900/60 text-red-300 text-xs font-semibold rounded-xl transition border border-red-500/30 flex items-center justify-center gap-1.5"
+                    >
+                      <LogOut className="w-3.5 h-3.5 text-red-400" />
+                      <span>Log Out to Ride</span>
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          onOpenAuth();
+                        }}
+                        className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition flex items-center justify-center gap-1.5"
+                      >
+                        <User className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Switch Campus Account</span>
+                      </button>
 
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onLogout();
-                    }}
-                    className="w-full py-2 bg-red-950/40 hover:bg-red-900/60 text-red-300 text-xs font-semibold rounded-xl transition border border-red-500/30 flex items-center justify-center gap-1.5"
-                  >
-                    <LogOut className="w-3.5 h-3.5 text-red-400" />
-                    <span>Sign Out</span>
-                  </button>
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          onLogout();
+                        }}
+                        className="w-full py-2 bg-red-950/40 hover:bg-red-900/60 text-red-300 text-xs font-semibold rounded-xl transition border border-red-500/30 flex items-center justify-center gap-1.5"
+                      >
+                        <LogOut className="w-3.5 h-3.5 text-red-400" />
+                        <span>Sign Out</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}

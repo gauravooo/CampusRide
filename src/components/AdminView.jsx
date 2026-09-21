@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Shield, Map, BrainCircuit, Award, Layers, RefreshCw, Zap,
   CheckCircle2, AlertTriangle, Edit3, Plus, Trash2, X, Smartphone, Save, Lock,
-  History, Archive, ChevronLeft, ChevronRight, Search, Clock, ArrowRight, Eye, Calendar, Camera
+  History, Archive, ChevronLeft, ChevronRight, Search, Clock, ArrowRight, Eye, Calendar, Camera, LogOut
 } from 'lucide-react';
 import CampusMap from './CampusMap';
 import { predictHubDemands } from '../utils/geo';
@@ -17,7 +17,9 @@ export default function AdminView({
   onAdjustTrustScore,
   onSaveHub,
   onDeleteHub,
-  currentUser
+  currentUser,
+  onAdminLogin,
+  onLogout
 }) {
   const [rebalanceStatus, setRebalanceStatus] = useState(null);
   const [editingStudent, setEditingStudent] = useState(null);
@@ -172,6 +174,9 @@ export default function AdminView({
       setAdminUnlocked(true);
       localStorage.setItem('admin_unlocked', 'true');
       setPinError('');
+      if (onAdminLogin) {
+        onAdminLogin();
+      }
     } else {
       setPinError('Invalid Admin Passcode. Please enter your authorized PIN.');
     }
@@ -325,13 +330,15 @@ export default function AdminView({
             <span>{rebalanceStatus === 'optimizing' ? 'Optimizing...' : 'AI Rebalancing'}</span>
           </button>
 
-          <Link
-            to="/"
-            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-white/10 flex items-center gap-1 transition"
+          <button
+            type="button"
+            onClick={onLogout}
+            className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded-xl text-xs font-bold border border-red-500/30 flex items-center gap-1.5 transition shadow"
+            title="Log out of Admin to sign in as Rider"
           >
-            <Smartphone className="w-3.5 h-3.5 text-blue-400" />
-            <span>Launch Rider PWA</span>
-          </Link>
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Log Out to Ride</span>
+          </button>
         </div>
       </div>
 
