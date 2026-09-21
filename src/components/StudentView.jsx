@@ -31,7 +31,8 @@ export default function StudentView({
   activeTrip,
   onStartTrip,
   onEndTrip,
-  userLocation
+  userLocation,
+  onRequireAuth
 }) {
   const [showQRModal, setShowQRModal] = useState(false);
   const [showLockModal, setShowLockModal] = useState(false);
@@ -71,6 +72,11 @@ export default function StudentView({
   };
 
   const handleScanSuccess = (qrPayload) => {
+    if (!currentUser) {
+      if (onRequireAuth) onRequireAuth();
+      return;
+    }
+
     if (activeTrip) {
       alert(`Active Ride in Progress: You already have an active ride with cycle ${activeTrip.cycleCode}. Please end your current ride before unlocking another cycle.`);
       return;
@@ -105,6 +111,10 @@ export default function StudentView({
   };
 
   const handleBLEUnlock = () => {
+    if (!currentUser) {
+      if (onRequireAuth) onRequireAuth();
+      return;
+    }
     if (!selectedCycle || activeTrip) return;
     setBleConnecting(true);
     setTimeout(() => {
@@ -115,6 +125,10 @@ export default function StudentView({
   };
 
   const handlePINUnlock = () => {
+    if (!currentUser) {
+      if (onRequireAuth) onRequireAuth();
+      return;
+    }
     if (!selectedCycle || activeTrip) return;
     setShowPIN(true);
     setTimeout(() => {
@@ -209,6 +223,10 @@ export default function StudentView({
               height="h-64 sm:h-80 md:h-96 lg:h-[430px]"
               userLocation={userLocation}
               onSelectCycle={(qrCode) => {
+                if (!currentUser) {
+                  if (onRequireAuth) onRequireAuth();
+                  return;
+                }
                 if (activeTrip) {
                   alert(`Active Ride in Progress: You already have an active ride with ${activeTrip.cycleCode}. Finish your active ride before unlocking another cycle.`);
                   return;
@@ -262,6 +280,10 @@ export default function StudentView({
                   <div
                     key={c.id}
                     onClick={() => {
+                      if (!currentUser) {
+                        if (onRequireAuth) onRequireAuth();
+                        return;
+                      }
                       if (activeTrip) {
                         alert(`Active Ride in Progress: You already have an active ride with ${activeTrip.cycleCode}. Finish your active ride before unlocking another cycle.`);
                         return;
@@ -323,6 +345,10 @@ export default function StudentView({
             <button
               disabled={Boolean(activeTrip)}
               onClick={() => {
+                if (!currentUser) {
+                  if (onRequireAuth) onRequireAuth();
+                  return;
+                }
                 if (activeTrip) {
                   alert(`Active Ride in Progress: You already have an active ride with ${activeTrip.cycleCode}. Finish your active ride before scanning another cycle.`);
                   return;
@@ -458,7 +484,8 @@ export default function StudentView({
 
       {/* Web Camera QR Scanner Modal (Portal on document.body) */}
       <QRScannerModal
-        isOpen={showQRModal}
+        isOpen={showQRModal && Boolean(currentUser)}
+        currentUser={currentUser}
         onClose={() => setShowQRModal(false)}
         onScanSuccess={handleScanSuccess}
         availableCycles={availableCycles}
@@ -477,8 +504,8 @@ export default function StudentView({
         currentUser={currentUser}
       />
 
-      {/* Dual Lock Unlock Engine Modal (Portal on document.body) */}
-      {showLockModal && selectedCycle && ReactDOM.createPortal(
+      {/* Dual Lock Unlock Engine Modal (Portal on document.body) - Strictly Authenticated Users Only */}
+      {showLockModal && selectedCycle && currentUser && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="glass-card w-full max-w-sm p-5 space-y-4 border-blue-500/40 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
@@ -508,7 +535,7 @@ export default function StudentView({
                 <span className="text-xs font-bold text-slate-200">Option A: 4-Digit PIN Reveal</span>
                 <span className="text-[10px] text-slate-400">Manual Keylock</span>
               </div>
-              {showPIN && (
+              {currentUser && showPIN && (
                 <div className="text-center py-2.5 bg-black rounded-xl text-3xl font-black tracking-widest text-emerald-400 border border-emerald-500/40">
                   {selectedCycle.lockPin}
                 </div>

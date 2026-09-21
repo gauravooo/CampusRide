@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import jsQR from 'jsqr';
 import { Camera, X, RefreshCw, AlertTriangle, Upload, Zap, Keyboard, Bike } from 'lucide-react';
 
-export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availableCycles = [] }) {
+export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availableCycles = [], currentUser = null }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' or 'user'
@@ -150,7 +150,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
     onScanSuccess(manualCode.trim());
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !currentUser) return null;
 
   // React Portal to document.body ensures centered popup dialog above all elements!
   return ReactDOM.createPortal(
@@ -308,6 +308,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess, availab
                 <div
                   key={c.id}
                   onClick={() => {
+                    if (!currentUser) return;
                     stopWebcamStream();
                     onScanSuccess(c.qrCode);
                   }}

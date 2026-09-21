@@ -89,7 +89,7 @@ export default function App() {
     }
   }, []);
 
-  // When logged out, clicking anywhere in the application opens the login popup
+  // When logged out, clicking anywhere in the application opens the login popup and cancels any underlying action
   useEffect(() => {
     if (!currentUser) {
       const handleGlobalClick = (e) => {
@@ -97,11 +97,20 @@ export default function App() {
         if (authModal && authModal.contains(e.target)) {
           return;
         }
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         setShowAuthModal(true);
       };
 
       window.addEventListener('click', handleGlobalClick, true);
-      return () => window.removeEventListener('click', handleGlobalClick, true);
+      window.addEventListener('pointerdown', handleGlobalClick, true);
+      window.addEventListener('touchstart', handleGlobalClick, true);
+      return () => {
+        window.removeEventListener('click', handleGlobalClick, true);
+        window.removeEventListener('pointerdown', handleGlobalClick, true);
+        window.removeEventListener('touchstart', handleGlobalClick, true);
+      };
     }
   }, [currentUser]);
 
@@ -193,6 +202,10 @@ export default function App() {
   }, []);
 
   const handleStartTrip = (cycle) => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      return;
+    }
     const startHub = hubs.find((h) => String(h.id) === String(cycle.hubId));
     const newTrip = {
       id: Date.now(),
@@ -419,6 +432,7 @@ export default function App() {
                 onStartTrip={handleStartTrip}
                 onEndTrip={handleEndTrip}
                 userLocation={userLocation}
+                onRequireAuth={() => setShowAuthModal(true)}
               />
             }
           />
@@ -442,8 +456,8 @@ export default function App() {
       </main>
 
       <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
+        isOpen={showAuthModal || !currentUser}
+        onClose={currentUser ? () => setShowAuthModal(false) : null}
         onLogin={handleLogin}
       />
 
