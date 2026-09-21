@@ -381,6 +381,11 @@ export default function StudentView({
                 disabled={Boolean(activeTrip)}
                 onChange={(e) => {
                   if (activeTrip) return;
+                  if (!currentUser) {
+                    if (onRequireAuth) onRequireAuth();
+                    e.target.value = '';
+                    return;
+                  }
                   if (e.target.value) {
                     handleScanSuccess(e.target.value);
                     e.target.value = '';

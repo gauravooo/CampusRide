@@ -10,6 +10,8 @@ export default function AuthModal({ isOpen, onClose, onLogin, onAdminLogin }) {
   const [showAdminPin, setShowAdminPin] = useState(false);
   const [adminPin, setAdminPin] = useState('');
   const [adminPinError, setAdminPinError] = useState('');
+  const [googleLoading, setGoogleLoading] = useState(true);
+  const [googleFailed, setGoogleFailed] = useState(false);
   const googleBtnRef = useRef(null);
 
   // Reset local states on open
@@ -19,37 +21,9 @@ export default function AuthModal({ isOpen, onClose, onLogin, onAdminLogin }) {
       setAdminPinError('');
       setAdminPin('');
       setShowAdminPin(false);
+      setGoogleFailed(false);
     }
   }, [isOpen]);
-
-  // Initialize Google Identity Services
-  useEffect(() => {
-    if (!isOpen || showAdminPin) return;
-
-    if (window.google && window.google.accounts && GOOGLE_CLIENT_ID) {
-      try {
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: handleGoogleCredentialResponse,
-          auto_select: false,
-          cancel_on_tap_outside: true
-        });
-
-        if (googleBtnRef.current) {
-          googleBtnRef.current.innerHTML = '';
-          window.google.accounts.id.renderButton(googleBtnRef.current, {
-            theme: 'filled_blue',
-            size: 'large',
-            shape: 'pill',
-            text: 'continue_with',
-            width: 320
-          });
-        }
-      } catch (err) {
-        console.warn('[GIS Init Error]', err);
-      }
-    }
-  }, [isOpen, showAdminPin]);
 
   const handleGoogleCredentialResponse = (response) => {
     setError('');
@@ -92,6 +66,99 @@ export default function AuthModal({ isOpen, onClose, onLogin, onAdminLogin }) {
     }
   };
 
+  // Initialize Google Identity Services with automatic polling & fast script execution
+  useEffect(() => {
+    if (!isOpen || showAdminPin) return;
+
+    let isMounted = true;
+    setGoogleLoading(true);
+    setGoogleFailed(false);
+
+    const renderButton = () => {
+      if (!isMounted) return;
+      try {
+        if (!window.google?.accounts?.id) {
+          console.warn('[GIS] google.accounts.id not found on render attempt');
+          setGoogleFailed(true);
+          setGoogleLoading(false);
+          return;
+        }
+
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
+
+        if (googleBtnRef.current) {
+          googleBtnRef.current.innerHTML = '';
+          window.google.accounts.id.renderButton(googleBtnRef.current, {
+            theme: 'filled_blue',
+            size: 'large',
+            shape: 'pill',
+            text: 'continue_with',
+            width: 320
+          });
+          setGoogleLoading(false);
+          setGoogleFailed(false);
+        }
+      } catch (err) {
+        console.warn('[GIS Init Error]', err);
+        if (isMounted) {
+          setGoogleFailed(true);
+          setGoogleLoading(false);
+        }
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      renderButton();
+    } else {
+      // If script is not yet present or still downloading
+      let script = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+      if (!script) {
+        script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        document.head.appendChild(script);
+      }
+
+      const onScriptLoad = () => {
+        renderButton();
+      };
+
+      script.addEventListener('load', onScriptLoad);
+
+      // Fast polling fallback to render as soon as script evaluates
+      const interval = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          clearInterval(interval);
+          renderButton();
+        }
+      }, 100);
+
+      const timeout = setTimeout(() => {
+        clearInterval(interval);
+        if (isMounted && !window.google?.accounts?.id) {
+          setGoogleFailed(true);
+          setGoogleLoading(false);
+        }
+      }, 8000);
+
+      return () => {
+        isMounted = false;
+        script.removeEventListener('load', onScriptLoad);
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, showAdminPin]);
+
   const handleAdminPinSubmit = (e) => {
     e.preventDefault();
     if (adminPin === '8888' || adminPin === 'admin2026') {
@@ -107,10 +174,16 @@ export default function AuthModal({ isOpen, onClose, onLogin, onAdminLogin }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) onClose();
+      }}
+      className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
+    >
       <div
         id="campus-auth-modal"
-        className="glass-card w-full max-w-sm p-6 space-y-4 border-blue-500/40 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card w-full max-w-sm p-6 space-y-4 border-blue-500/40 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 cursor-default"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
@@ -211,9 +284,59 @@ export default function AuthModal({ isOpen, onClose, onLogin, onAdminLogin }) {
               </p>
             </div>
 
-            {/* Google Identity Services Render Target */}
-            <div className="flex justify-center py-2 min-h-[44px]">
-              <div ref={googleBtnRef} id="googleSignInDiv"></div>
+            {/* Google Identity Services Render Target with Loading & Retry */}
+            <div className="flex flex-col items-center justify-center py-2 min-h-[44px]">
+              {googleLoading && (
+                <div className="flex items-center gap-2 text-xs text-slate-400 py-2.5">
+                  <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Connecting to Google Identity...</span>
+                </div>
+              )}
+
+              {googleFailed && (
+                <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-center space-y-2 w-full">
+                  <p className="text-xs text-amber-300 font-semibold">Google SSO connection timed out.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGoogleLoading(true);
+                      setGoogleFailed(false);
+                      const s = document.createElement('script');
+                      s.src = `https://accounts.google.com/gsi/client?v=${Date.now()}`;
+                      s.async = true;
+                      s.onload = () => {
+                        if (window.google?.accounts?.id && googleBtnRef.current) {
+                          window.google.accounts.id.initialize({
+                            client_id: GOOGLE_CLIENT_ID,
+                            callback: handleGoogleCredentialResponse,
+                            auto_select: false
+                          });
+                          googleBtnRef.current.innerHTML = '';
+                          window.google.accounts.id.renderButton(googleBtnRef.current, {
+                            theme: 'filled_blue',
+                            size: 'large',
+                            shape: 'pill',
+                            text: 'continue_with',
+                            width: 320
+                          });
+                          setGoogleLoading(false);
+                          setGoogleFailed(false);
+                        }
+                      };
+                      document.head.appendChild(s);
+                    }}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow"
+                  >
+                    Retry Google SSO
+                  </button>
+                </div>
+              )}
+
+              <div
+                ref={googleBtnRef}
+                id="googleSignInDiv"
+                className={googleLoading || googleFailed ? 'hidden' : 'flex justify-center'}
+              ></div>
             </div>
 
             <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-500/20 text-[10px] text-blue-300 space-y-1">

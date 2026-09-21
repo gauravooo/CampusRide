@@ -70,23 +70,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [showAuthModal, setShowAuthModal] = useState(() => {
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
-      return false;
-    }
-    const adminUnlocked = localStorage.getItem('admin_unlocked') === 'true';
-    if (adminUnlocked) return false;
-    const saved = localStorage.getItem('campus_user');
-    if (saved && saved !== 'null' && saved !== 'undefined') {
-      try {
-        const p = JSON.parse(saved);
-        if (p?.email && !p?.isDemo && p.email !== 'aarav.s2025@iimbg.ac.in') {
-          return false;
-        }
-      } catch (e) {}
-    }
-    return true; // Prompt login by default if unauthenticated
-  });
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const [userLocation, setUserLocation] = useState({ lat: 24.6808, lng: 84.9665 });
   const [completedTripResult, setCompletedTripResult] = useState(null);
@@ -101,40 +85,10 @@ export default function App() {
         if (p?.isDemo || p?.email === 'aarav.s2025@iimbg.ac.in') {
           localStorage.removeItem('campus_user');
           setCurrentUser(null);
-          setShowAuthModal(true);
         }
       } catch (e) {}
     }
   }, []);
-
-  // When logged out, clicking anywhere outside the admin route opens the login popup and cancels underlying action
-  useEffect(() => {
-    if (!currentUser) {
-      const handleGlobalClick = (e) => {
-        // If user is accessing the /admin route (entering Admin PIN), do not block them
-        if (window.location.pathname.startsWith('/admin')) {
-          return;
-        }
-        const authModal = document.getElementById('campus-auth-modal');
-        if (authModal && authModal.contains(e.target)) {
-          return;
-        }
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        setShowAuthModal(true);
-      };
-
-      window.addEventListener('click', handleGlobalClick, true);
-      window.addEventListener('pointerdown', handleGlobalClick, true);
-      window.addEventListener('touchstart', handleGlobalClick, true);
-      return () => {
-        window.removeEventListener('click', handleGlobalClick, true);
-        window.removeEventListener('pointerdown', handleGlobalClick, true);
-        window.removeEventListener('touchstart', handleGlobalClick, true);
-      };
-    }
-  }, [currentUser]);
 
   // Load persistent data from Cloudflare D1 SQL / API
   useEffect(() => {
@@ -452,7 +406,7 @@ export default function App() {
     localStorage.removeItem('admin_unlocked');
     setCurrentUser(null);
     navigate('/');
-    setShowAuthModal(true);
+    setShowAuthModal(false);
   };
 
   return (
@@ -507,7 +461,7 @@ export default function App() {
 
       <AuthModal
         isOpen={showAuthModal && (!currentUser || currentUser.role !== 'admin')}
-        onClose={currentUser ? () => setShowAuthModal(false) : null}
+        onClose={() => setShowAuthModal(false)}
         onLogin={handleLogin}
         onAdminLogin={handleAdminLogin}
       />
