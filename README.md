@@ -34,7 +34,7 @@ All machine learning demand forecasting, geospatial geofencing, visual parking p
 
 ### Key Architectural Capabilities
 - **Decentralized Dual-Lock Mechanism**: Accommodates both legacy manual combination locks (via secure 4-digit PIN reveal upon QR scan) and smart IoT BLE padlocks (via virtual Bluetooth Low Energy GATT handshakes with RSSI and battery telemetry).
-- **Sub-Meter Geofencing**: Validates ride termination within designated campus hubs using the spherical Haversine formula with a 25m–60m radius boundary.
+- **Sub-Meter Geofencing**: Validates ride termination within designated campus hubs using the spherical Haversine formula with a 20m–60m radius boundary.
 - **Predictive AI Fleet Rebalancing**: Employs a pure JavaScript `RandomForestRegressor` ensemble running 100% client-side to forecast hourly cycle demand surges and deficits across campus hubs based on lecture timetables, hostel migration rhythms, and dining schedules.
 - **Mandatory Photographic Parking Proof**: Enforces camera-captured visual verification upon trip conclusion, coupling client-side canvas geotagging with an image verification pipeline to ensure cycles are neatly racked.
 - **Dynamic Trust Score Model**: Self-regulates student parking compliance through an automated incentive/penalty scoring algorithm ($0.0 - 100.0$).
@@ -146,7 +146,7 @@ flowchart LR
 ### Architectural Separation
 1. **Student View (`StudentView.jsx`)**: Minimalist, frictionless interface optimized for students in transit. Provides real-time geolocation tracking, nearest hub detection, instant cycle unlocking, and one-tap live trip controls.
 2. **Admin View (`AdminView.jsx`)**: Centralized command center providing fleet telemetry, interactive hub management, manual student trust score overrides, live in-motion cycle tracking, and two-month archival pagination.
-3. **Campus Map Engine (`CampusMap.jsx`)**: High-performance Leaflet canvas rendering 10 campus hubs with 25m–60m geofence rings, active rider positions, and cycle availability clusters.
+3. **Campus Map Engine (`CampusMap.jsx`)**: High-performance Leaflet canvas rendering 10 campus hubs with 20m–60m geofence rings, active rider positions, and cycle availability clusters.
 4. **Service Integration Layer (`api.js`)**: Implements an offline-tolerant fallback cache. If network connectivity drops or edge endpoints encounter latency, the client seamlessly reads and writes to local storage while buffering sync mutations.
 
 ---
