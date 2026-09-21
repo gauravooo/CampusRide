@@ -268,10 +268,20 @@ export const api = {
           : (cachedMatch?.startHubName || matchedStartHub?.name || 'Main Gate');
 
       const rawEndHub = t.end_hub_name || t.endHubName;
-      const endHubName =
-        (rawEndHub && rawEndHub !== 'Campus Hub')
-          ? rawEndHub
-          : (cachedMatch?.endHubName || matchedEndHub?.name || 'Academic Block');
+      const isTripActive = (t.status === 'in_progress' || t.status === 'active' || (!t.end_time && !t.endTime));
+      const endHubName = isTripActive
+        ? 'In Transit (Campus)'
+        : ((rawEndHub && rawEndHub !== 'Campus Hub')
+            ? rawEndHub
+            : (cachedMatch?.endHubName || matchedEndHub?.name || 'Academic Block'));
+
+      let durationMinutes = 0.0;
+      if (isTripActive) {
+        const startMs = new Date(t.start_time || t.startTime || cachedMatch?.startTime || Date.now()).getTime();
+        durationMinutes = Math.max(0.5, Math.round(((Date.now() - startMs) / 60000) * 10) / 10);
+      } else {
+        durationMinutes = parseFloat(t.duration_minutes || t.durationMinutes || cachedMatch?.durationMinutes) || 5.0;
+      }
 
       return {
         id: t.id || cachedMatch?.id || Date.now(),
@@ -282,16 +292,16 @@ export const api = {
         cycleCode: t.cycle_code || t.cycleCode || cachedMatch?.cycleCode || 'BG-CYCLE-001',
         startHubId,
         startHubName,
-        endHubId,
+        endHubId: isTripActive ? null : endHubId,
         endHubName,
         startTime: t.start_time || t.startTime || cachedMatch?.startTime || new Date().toISOString(),
-        endTime: t.end_time || t.endTime || cachedMatch?.endTime || new Date().toISOString(),
-        durationMinutes: parseFloat(t.duration_minutes || t.durationMinutes || cachedMatch?.durationMinutes) || 5.0,
-        photoVerified: Boolean(t.photo_verified ?? t.photoVerified ?? cachedMatch?.photoVerified ?? true),
+        endTime: isTripActive ? null : (t.end_time || t.endTime || cachedMatch?.endTime || new Date().toISOString()),
+        durationMinutes,
+        photoVerified: isTripActive ? false : Boolean(t.photo_verified ?? t.photoVerified ?? cachedMatch?.photoVerified ?? true),
         photoUrl: t.photo_url || t.photoUrl || cachedMatch?.photoUrl || null,
-        trustDelta,
-        withinGeofence,
-        status: t.status || cachedMatch?.status || 'completed'
+        trustDelta: isTripActive ? 0.0 : trustDelta,
+        withinGeofence: isTripActive ? true : withinGeofence,
+        status: isTripActive ? 'in_progress' : (t.status || cachedMatch?.status || 'completed')
       };
     });
 
@@ -326,6 +336,7 @@ export const api = {
     }
 
     const current = await this.getTrips();
+    const isTripActive = (trip.status === 'in_progress' || trip.status === 'active' || (!trip.endTime && !trip.end_time));
     const normalizedNew = {
       id: savedTrip?.id || trip.id || Date.now(),
       userId: trip.userId || trip.user_id || 1,
@@ -335,28 +346,28 @@ export const api = {
       cycleCode: trip.cycleCode || trip.cycle_code || 'BG-CYCLE-001',
       startHubId: trip.startHubId || trip.start_hub_id || 1,
       startHubName: trip.startHubName || trip.start_hub_name || 'Main Gate',
-      endHubId: trip.endHubId || trip.end_hub_id || 2,
-      endHubName: trip.endHubName || trip.end_hub_name || 'Academic Block',
+      endHubId: isTripActive ? null : (trip.endHubId || trip.end_hub_id || 2),
+      endHubName: isTripActive ? 'In Transit (Campus)' : (trip.endHubName || trip.end_hub_name || 'Academic Block'),
       startTime: trip.startTime || trip.start_time || new Date().toISOString(),
-      endTime: trip.endTime || trip.end_time || new Date().toISOString(),
-      durationMinutes: parseFloat(trip.durationMinutes || trip.duration_minutes) || 5.0,
-      photoVerified: Boolean(trip.photoVerified ?? trip.photo_verified),
+      endTime: isTripActive ? null : (trip.endTime || trip.end_time || new Date().toISOString()),
+      durationMinutes: isTripActive ? 0.0 : (parseFloat(trip.durationMinutes || trip.duration_minutes) || 5.0),
+      photoVerified: isTripActive ? false : Boolean(trip.photoVerified ?? trip.photo_verified),
       photoUrl: savedTrip?.photo_url || savedTrip?.photoUrl || trip.photoUrl || trip.photo_url || null,
-      trustDelta: typeof trip.trustDelta === 'number'
+      trustDelta: isTripActive ? 0.0 : (typeof trip.trustDelta === 'number'
         ? trip.trustDelta
-        : (typeof trip.trustScoreDelta === 'number' ? trip.trustScoreDelta : (trip.withinGeofence ? 2.0 : -5.0)),
+        : (typeof trip.trustScoreDelta === 'number' ? trip.trustScoreDelta : (trip.withinGeofence ? 2.0 : -5.0))),
       withinGeofence: trip.withinGeofence !== undefined
         ? Boolean(trip.withinGeofence)
         : (parseFloat(trip.trustDelta ?? trip.trustScoreDelta) >= 0),
-      status: trip.status || 'completed'
+      status: isTripActive ? 'in_progress' : (trip.status || 'completed')
     };
 
-    // Deduplicate so exact same trip is not duplicated in state
+    // Deduplicate so exact same trip or in-progress version is replaced cleanly
     const filtered = current.filter((t) => {
       if (String(t.id) === String(normalizedNew.id)) return false;
       if (
         t.cycleCode === normalizedNew.cycleCode &&
-        Math.abs(new Date(t.startTime).getTime() - new Date(normalizedNew.startTime).getTime()) < 5000
+        (t.status === 'in_progress' || Math.abs(new Date(t.startTime).getTime() - new Date(normalizedNew.startTime).getTime()) < 60000)
       ) {
         return false;
       }

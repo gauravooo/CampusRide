@@ -10,8 +10,8 @@ function getSeedTrips() {
     {
       id: 101,
       user_id: 1,
-      user_name: 'Aarav Sharma',
-      user_email: 'aarav.s2025@iimbg.ac.in',
+      user_name: 'Aditya Verma',
+      user_email: 'aditya.v2025@iimbg.ac.in',
       cycle_id: 1,
       cycle_code: 'BG-CYCLE-001',
       start_hub_id: 1,
@@ -105,8 +105,8 @@ function getSeedTrips() {
     {
       id: 106,
       user_id: 1,
-      user_name: 'Aarav Sharma',
-      user_email: 'aarav.s2025@iimbg.ac.in',
+      user_name: 'Aditya Verma',
+      user_email: 'aditya.v2025@iimbg.ac.in',
       cycle_id: 15,
       cycle_code: 'BG-CYCLE-015',
       start_hub_id: 4,
@@ -164,8 +164,8 @@ function getSeedTrips() {
     {
       id: 201,
       user_id: 1,
-      user_name: 'Aarav Sharma',
-      user_email: 'aarav.s2025@iimbg.ac.in',
+      user_name: 'Aditya Verma',
+      user_email: 'aditya.v2025@iimbg.ac.in',
       cycle_id: 2,
       cycle_code: 'BG-CYCLE-002',
       start_hub_id: 1,
@@ -259,8 +259,8 @@ function getSeedTrips() {
     {
       id: 206,
       user_id: 1,
-      user_name: 'Aarav Sharma',
-      user_email: 'aarav.s2025@iimbg.ac.in',
+      user_name: 'Aditya Verma',
+      user_email: 'aditya.v2025@iimbg.ac.in',
       cycle_id: 1,
       cycle_code: 'BG-CYCLE-001',
       start_hub_id: 7,
@@ -369,21 +369,25 @@ export async function onRequestPost(context) {
     const cycleCode = trip.cycleCode || trip.cycle_code || 'BG-CYCLE-001';
     const startHubId = trip.startHubId || trip.start_hub_id || 1;
     const startHubName = trip.startHubName || trip.start_hub_name || 'Main Gate';
-    const endHubId = trip.endHubId || trip.end_hub_id || 2;
-    const endHubName = trip.endHubName || trip.end_hub_name || 'Academic Block';
+    const status = trip.status || (trip.endTime ? 'completed' : 'in_progress');
+    const isActive = status === 'in_progress' || status === 'active';
+
+    const endHubId = isActive ? null : (trip.endHubId || trip.end_hub_id || 2);
+    const endHubName = isActive ? null : (trip.endHubName || trip.end_hub_name || 'Academic Block');
     const startTime = trip.startTime || trip.start_time || new Date().toISOString();
-    const endTime = trip.endTime || trip.end_time || new Date().toISOString();
-    const durationMinutes = parseFloat(trip.durationMinutes || trip.duration_minutes) || 5.0;
+    const endTime = isActive ? null : (trip.endTime || trip.end_time || new Date().toISOString());
+    const durationMinutes = isActive ? 0.0 : (parseFloat(trip.durationMinutes || trip.duration_minutes) || 5.0);
     const photoVerified = trip.photoVerified ? 1 : 0;
     const photoUrl = trip.photoUrl || trip.photo_url || null;
-    const trustScoreDelta = typeof trip.trustScoreDelta === 'number'
-      ? trip.trustScoreDelta
-      : (typeof trip.trustDelta === 'number' ? trip.trustDelta : (trip.withinGeofence ? 2.0 : -5.0));
-    const withinGeofence = trip.withinGeofence ? 1 : (trustScoreDelta >= 0 ? 1 : 0);
-    const status = trip.status || 'completed';
+    const trustScoreDelta = isActive ? 0.0 : (
+      typeof trip.trustScoreDelta === 'number'
+        ? trip.trustScoreDelta
+        : (typeof trip.trustDelta === 'number' ? trip.trustDelta : (trip.withinGeofence ? 2.0 : -5.0))
+    );
+    const withinGeofence = trip.withinGeofence !== undefined ? (trip.withinGeofence ? 1 : 0) : 1;
 
     const newTrip = {
-      id: Date.now(),
+      id: trip.id || Date.now(),
       user_id: userId,
       user_name: userName,
       user_email: userEmail,
@@ -407,47 +411,70 @@ export async function onRequestPost(context) {
     if (env && env.DB) {
       try {
         // Ensure columns exist
-        try {
-          await env.DB.prepare('ALTER TABLE trips ADD COLUMN user_name TEXT').run();
-          await env.DB.prepare('ALTER TABLE trips ADD COLUMN user_email TEXT').run();
-          await env.DB.prepare('ALTER TABLE trips ADD COLUMN start_hub_name TEXT').run();
-          await env.DB.prepare('ALTER TABLE trips ADD COLUMN end_hub_name TEXT').run();
-          await env.DB.prepare('ALTER TABLE trips ADD COLUMN within_geofence INTEGER DEFAULT 1').run();
-          await env.DB.prepare('ALTER TABLE trips ADD COLUMN photo_url TEXT').run();
-        } catch (e) {}
+        try { await env.DB.prepare('ALTER TABLE trips ADD COLUMN user_name TEXT').run(); } catch (e) {}
+        try { await env.DB.prepare('ALTER TABLE trips ADD COLUMN user_email TEXT').run(); } catch (e) {}
+        try { await env.DB.prepare('ALTER TABLE trips ADD COLUMN start_hub_name TEXT').run(); } catch (e) {}
+        try { await env.DB.prepare('ALTER TABLE trips ADD COLUMN end_hub_name TEXT').run(); } catch (e) {}
+        try { await env.DB.prepare('ALTER TABLE trips ADD COLUMN within_geofence INTEGER DEFAULT 1').run(); } catch (e) {}
+        try { await env.DB.prepare('ALTER TABLE trips ADD COLUMN photo_url TEXT').run(); } catch (e) {}
 
-        // Insert complete trip record with direct D1 photo storage
-        await env.DB.prepare(`
-          INSERT INTO trips (
-            user_id, user_name, user_email,
-            cycle_id, cycle_code,
-            start_hub_id, start_hub_name,
-            end_hub_id, end_hub_name,
-            start_time, end_time,
-            duration_minutes, photo_verified, photo_url,
-            trust_score_delta, within_geofence, status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(
-          userId, userName, userEmail,
-          cycleId, cycleCode,
-          startHubId, startHubName,
-          endHubId, endHubName,
-          startTime, endTime,
-          durationMinutes, photoVerified, photoUrl,
-          trustScoreDelta, withinGeofence, status
-        ).run();
-      } catch (dbErr) {
-        console.warn('[D1 Trips Insert Warning, fallback to basic]', dbErr.message);
-        try {
-          await env.DB.prepare(`
-            INSERT INTO trips (user_id, cycle_id, cycle_code, start_hub_id, end_hub_id, start_time, end_time, duration_minutes, photo_verified, photo_url, trust_score_delta, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).bind(
-            userId, cycleId, cycleCode, startHubId, endHubId, startTime, endTime, durationMinutes, photoVerified, photoUrl, trustScoreDelta, status
-          ).run();
-        } catch (e) {
-          console.error('[D1 Trips Fallback Insert Error]', e.message);
+        // Check if updating an existing active in_progress trip
+        let existingTrip = null;
+        if (trip.id) {
+          try {
+            existingTrip = await env.DB.prepare('SELECT id FROM trips WHERE id = ?').bind(trip.id).first();
+          } catch (e) {}
         }
+        if (!existingTrip && cycleCode && status === 'completed') {
+          try {
+            existingTrip = await env.DB.prepare("SELECT id FROM trips WHERE cycle_code = ? AND status = 'in_progress' ORDER BY id DESC LIMIT 1").bind(cycleCode).first();
+          } catch (e) {}
+        }
+
+        if (existingTrip) {
+          // Update the in-progress trip to completed
+          await env.DB.prepare(`
+            UPDATE trips SET
+              end_hub_id = ?, end_hub_name = ?,
+              end_time = ?, duration_minutes = ?,
+              photo_verified = ?, photo_url = ?,
+              trust_score_delta = ?, within_geofence = ?,
+              status = ?
+            WHERE id = ?
+          `).bind(
+            endHubId, endHubName,
+            endTime, durationMinutes,
+            photoVerified, photoUrl,
+            trustScoreDelta, withinGeofence,
+            status,
+            existingTrip.id
+          ).run();
+        } else {
+          // Insert new trip (either in_progress or completed)
+          await env.DB.prepare(`
+            INSERT INTO trips (
+              id,
+              user_id, user_name, user_email,
+              cycle_id, cycle_code,
+              start_hub_id, start_hub_name,
+              end_hub_id, end_hub_name,
+              start_time, end_time,
+              duration_minutes, photo_verified, photo_url,
+              trust_score_delta, within_geofence, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(
+            newTrip.id,
+            userId, userName, userEmail,
+            cycleId, cycleCode,
+            startHubId, startHubName,
+            endHubId, endHubName,
+            startTime, endTime,
+            durationMinutes, photoVerified, photoUrl,
+            trustScoreDelta, withinGeofence, status
+          ).run();
+        }
+      } catch (dbErr) {
+        console.warn('[D1 Trips Insert/Update Warning]', dbErr.message);
       }
     }
 

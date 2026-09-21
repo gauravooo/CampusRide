@@ -293,6 +293,39 @@ export default function CampusMap({ hubs = [], cycles = [], height = "h-56", onS
         `);
         layers.addLayer(cycleMarker);
       });
+
+      // Live In-Use Cycles (Active Rides with glowing pulse)
+      const inUseCycles = cycles.filter((c) => c.status === 'in_use');
+      inUseCycles.forEach((c) => {
+        if (!c.lat || !c.lng) return;
+
+        const inUseHtml = `
+          <div class="relative flex items-center justify-center">
+            <div class="w-6 h-6 rounded-full bg-amber-400/50 border border-amber-300 animate-ping absolute"></div>
+            <div class="w-5 h-5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center justify-center font-bold shadow-lg border border-white relative z-10 text-[10px]">
+              🚴
+            </div>
+          </div>
+        `;
+
+        const inUseIcon = L.divIcon({
+          html: inUseHtml,
+          className: 'custom-cycle-inuse-marker',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+
+        const inUseMarker = L.marker([c.lat, c.lng], { icon: inUseIcon, zIndexOffset: 900 });
+        inUseMarker.bindPopup(`
+          <div style="padding:4px; text-align:center; font-family:sans-serif;">
+            <div style="display:inline-block; padding:2px 6px; background:#f59e0b; color:#000; font-size:9px; font-weight:900; border-radius:4px; margin-bottom:3px;">⚡ ACTIVE RIDE IN PROGRESS</div>
+            <strong style="color:#ffffff; font-size:13px; display:block;">${c.code}</strong>
+            <span style="font-size:11px; color:#10b981; font-weight:bold;">⚡ ${c.batteryPct}% Battery</span><br/>
+            <span style="font-size:10px; color:#cbd5e1;">Rider active on campus</span>
+          </div>
+        `);
+        layers.addLayer(inUseMarker);
+      });
     }
 
     // D. User Location Marker

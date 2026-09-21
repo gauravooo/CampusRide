@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Shield, Map, BrainCircuit, Award, Layers, RefreshCw, Zap,
@@ -39,8 +39,8 @@ export default function AdminView({
     description: ''
   });
 
-  // Ride History & Two-Month Archival state
-  const [historyTab, setHistoryTab] = useState('recent'); // 'recent' | 'archived'
+  // Ride History & Two-Month Archival state ('active' | 'recent' | 'archived')
+  const [historyTab, setHistoryTab] = useState('recent');
   const [searchQuery, setSearchQuery] = useState('');
   const [geofenceFilter, setGeofenceFilter] = useState('all'); // 'all' | 'verified' | 'penalty'
   const [currentPage, setCurrentPage] = useState(1);
@@ -59,23 +59,57 @@ export default function AdminView({
   };
 
   const safeTrips = Array.isArray(trips) ? trips : [];
-  // Exclude 2-month old rides from active recent history
-  const recentTrips = safeTrips.filter((t) => !isTripArchived(t));
-  // Keep 2-month old rides available in dedicated archived pool
-  const archivedTrips = safeTrips.filter((t) => isTripArchived(t));
 
-  const currentPool = historyTab === 'recent' ? recentTrips : archivedTrips;
+  // Merge activeTrip from props into the trips pool if not already included
+  const allTrips = useMemo(() => {
+    const list = [...safeTrips];
+    if (activeTrip) {
+      const alreadyInList = list.some(
+        (t) => String(t.id) === String(activeTrip.id) ||
+               (t.cycleCode === activeTrip.cycleCode && (t.status === 'in_progress' || t.status === 'active'))
+      );
+      if (!alreadyInList) {
+        list.unshift({
+          ...activeTrip,
+          status: 'in_progress',
+          endHubName: activeTrip.endHubName || 'In Transit (Campus)',
+          durationMinutes: activeTrip.durationMinutes || 0
+        });
+      }
+    }
+    return list;
+  }, [safeTrips, activeTrip]);
+
+  // Separate active in-progress rides from completed ones
+  const activeTrips = allTrips.filter(
+    (t) => t.status === 'in_progress' || t.status === 'active' || (!t.endTime && !t.end_time)
+  );
+  const completedTrips = allTrips.filter(
+    (t) => t.status !== 'in_progress' && t.status !== 'active' && (t.endTime || t.end_time)
+  );
+
+  // Exclude 2-month old rides from active recent history
+  const recentTrips = completedTrips.filter((t) => !isTripArchived(t));
+  // Keep 2-month old rides available in dedicated archived pool
+  const archivedTrips = completedTrips.filter((t) => isTripArchived(t));
+
+  const currentPool = historyTab === 'active'
+    ? activeTrips
+    : (historyTab === 'recent' ? recentTrips : archivedTrips);
 
   const filteredTrips = currentPool.filter((t) => {
-    const rawDelta = typeof t.trustDelta === 'number' ? t.trustDelta : (t.trust_score_delta ?? 2.0);
+    const isTripActive = t.status === 'in_progress' || t.status === 'active' || (!t.endTime && !t.end_time);
+    const rawDelta = typeof t.trustDelta === 'number' ? t.trustDelta : (t.trust_score_delta ?? (isTripActive ? 0.0 : 2.0));
     const isWithin =
       t.withinGeofence === true ||
       t.within_geofence === 1 ||
       (t.withinGeofence === undefined && rawDelta >= 0) ||
       rawDelta > 0;
 
-    if (geofenceFilter === 'verified' && !isWithin) return false;
-    if (geofenceFilter === 'penalty' && isWithin) return false;
+    if (!isTripActive) {
+      if (geofenceFilter === 'verified' && !isWithin) return false;
+      if (geofenceFilter === 'penalty' && isWithin) return false;
+    }
 
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
@@ -98,10 +132,11 @@ export default function AdminView({
       t.startHubName && t.startHubName !== 'Campus Hub'
         ? t.startHubName
         : (matchedStartHub?.name || 'Main Gate');
-    const endName =
-      t.endHubName && t.endHubName !== 'Campus Hub'
-        ? t.endHubName
-        : (matchedEndHub?.name || 'Academic Block');
+    const endName = isTripActive
+      ? 'In Transit (Campus)'
+      : (t.endHubName && t.endHubName !== 'Campus Hub'
+          ? t.endHubName
+          : (matchedEndHub?.name || 'Academic Block'));
 
     return (
       riderName.toLowerCase().includes(q) ||
@@ -163,7 +198,11 @@ export default function AdminView({
   const totalCycles = cycles.length;
   const availableCycles = cycles.filter((c) => c.status === 'available').length;
   const maintenanceCycles = cycles.filter((c) => c.status === 'maintenance').length;
-  const inUseCycles = activeTrip ? 1 : 0;
+  const inUseCycles = Math.max(
+    activeTrips.length,
+    cycles.filter((c) => c.status === 'in_use').length,
+    activeTrip ? 1 : 0
+  );
   const avgTrustScore = users.length
     ? (users.reduce((acc, u) => acc + (u.trustScore || 100), 0) / users.length).toFixed(1)
     : '98.5';
@@ -551,15 +590,38 @@ export default function AdminView({
             </p>
           </div>
 
-          {/* Tab Switcher: Recent Rides vs Archived Drives */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-900/90 rounded-2xl border border-white/10 self-start lg:self-auto">
+          {/* Tab Switcher: Active Rides vs Recent Rides vs Archived Drives */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-900/90 rounded-2xl border border-white/10 self-start lg:self-auto overflow-x-auto max-w-full">
+            <button
+              type="button"
+              onClick={() => {
+                setHistoryTab('active');
+                setCurrentPage(1);
+              }}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+                historyTab === 'active'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <Zap className={`w-3.5 h-3.5 ${activeTrips.length > 0 ? 'text-amber-400 animate-pulse' : ''}`} />
+              <span>⚡ Active in Progress</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                  historyTab === 'active' ? 'bg-black/30 text-slate-950' : 'bg-slate-800 text-amber-300'
+                }`}
+              >
+                {activeTrips.length}
+              </span>
+            </button>
+
             <button
               type="button"
               onClick={() => {
                 setHistoryTab('recent');
                 setCurrentPage(1);
               }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
                 historyTab === 'recent'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -582,7 +644,7 @@ export default function AdminView({
                 setHistoryTab('archived');
                 setCurrentPage(1);
               }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
                 historyTab === 'archived'
                   ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -600,6 +662,37 @@ export default function AdminView({
             </button>
           </div>
         </div>
+
+        {/* Live Active Fleet Banner (when rides are currently active) */}
+        {activeTrips.length > 0 && historyTab !== 'active' && (
+          <div className="p-3 bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-transparent border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-300">
+            <div className="flex items-center gap-3">
+              <div className="relative flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex-shrink-0">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping absolute"></span>
+                <Zap className="w-4 h-4 text-amber-400 relative z-10" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-amber-300">
+                  ⚡ {activeTrips.length} {activeTrips.length === 1 ? 'Cycle is' : 'Cycles are'} Currently Active & In-Motion
+                </p>
+                <p className="text-[11px] text-slate-300">
+                  Real-time rides unlocked by students on campus.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setHistoryTab('active');
+                setCurrentPage(1);
+              }}
+              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl transition shadow-md shadow-amber-500/20 self-start sm:self-auto flex items-center gap-1.5"
+            >
+              <span>View Active Rides</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Filter and Search Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
@@ -644,7 +737,7 @@ export default function AdminView({
             </select>
 
             <span className="text-[11px] text-slate-400 hidden sm:inline-block font-mono">
-              {filteredTrips.length} {historyTab === 'recent' ? 'recent' : 'archived'}
+              {filteredTrips.length} {historyTab === 'active' ? 'active' : (historyTab === 'recent' ? 'recent' : 'archived')}
             </span>
           </div>
         </div>
@@ -684,7 +777,8 @@ export default function AdminView({
                 </tr>
               ) : (
                 paginatedTrips.map((t) => {
-                  const isArchived = isTripArchived(t);
+                  const isTripActive = t.status === 'in_progress' || t.status === 'active' || (!t.endTime && !t.end_time);
+                  const isArchived = !isTripActive && isTripArchived(t);
                   const timeAgo = formatTimeAgo(t.startTime);
 
                   // Defensive resolution for legacy or raw rows
@@ -706,26 +800,44 @@ export default function AdminView({
                     t.startHubName && t.startHubName !== 'Campus Hub'
                       ? t.startHubName
                       : (matchedStartHub?.name || 'Main Gate');
-                  const endName =
-                    t.endHubName && t.endHubName !== 'Campus Hub'
-                      ? t.endHubName
-                      : (matchedEndHub?.name || 'Academic Block');
+                  const endName = isTripActive
+                    ? 'In Transit (Campus)'
+                    : (t.endHubName && t.endHubName !== 'Campus Hub'
+                        ? t.endHubName
+                        : (matchedEndHub?.name || 'Academic Block'));
 
-                  const rawDelta = typeof t.trustDelta === 'number' ? t.trustDelta : (t.trust_score_delta ?? 2.0);
+                  const rawDelta = typeof t.trustDelta === 'number' ? t.trustDelta : (t.trust_score_delta ?? (isTripActive ? 0.0 : 2.0));
                   const isWithin =
                     t.withinGeofence === true ||
                     t.within_geofence === 1 ||
                     (t.withinGeofence === undefined && rawDelta >= 0) ||
                     rawDelta > 0;
 
+                  // Live duration calculation for active rides
+                  let durationDisplay = '5.0 min';
+                  if (isTripActive) {
+                    const startMs = new Date(t.startTime).getTime();
+                    const liveMinutes = Math.max(1, Math.round((Date.now() - startMs) / 60000));
+                    durationDisplay = `⚡ ${liveMinutes}m (Live)`;
+                  } else if (t.durationMinutes) {
+                    durationDisplay = `${t.durationMinutes.toFixed(1)} min`;
+                  }
+
                   return (
-                    <tr key={t.id} className="hover:bg-slate-800/40 transition">
+                    <tr key={t.id} className={`hover:bg-slate-800/40 transition ${isTripActive ? 'bg-amber-500/5' : ''}`}>
                       <td className="p-3">
                         <div className="font-semibold text-white">{formatTripDate(t.startTime)}</div>
-                        {timeAgo && (
-                          <span className={`text-[10px] font-mono ${isArchived ? 'text-purple-400' : 'text-slate-400'}`}>
-                            {timeAgo} {isArchived ? '• 2mo+ Old' : ''}
+                        {isTripActive ? (
+                          <span className="px-2 py-0.5 mt-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1 animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                            Live In Motion
                           </span>
+                        ) : (
+                          timeAgo && (
+                            <span className={`text-[10px] font-mono ${isArchived ? 'text-purple-400' : 'text-slate-400'}`}>
+                              {timeAgo} {isArchived ? '• 2mo+ Old' : ''}
+                            </span>
+                          )
                         )}
                       </td>
                       <td className="p-3">
@@ -733,7 +845,11 @@ export default function AdminView({
                         <div className="font-mono text-[10px] text-blue-400 truncate max-w-[150px]">{riderEmail}</div>
                       </td>
                       <td className="p-3">
-                        <span className="font-mono px-2 py-1 bg-slate-900 rounded-md text-[11px] font-bold text-purple-300 border border-purple-500/20">
+                        <span className={`font-mono px-2 py-1 rounded-md text-[11px] font-bold border ${
+                          isTripActive
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                            : 'bg-slate-900 text-purple-300 border-purple-500/20'
+                        }`}>
                           {t.cycleCode || 'BG-CYCLE-001'}
                         </span>
                       </td>
@@ -741,14 +857,27 @@ export default function AdminView({
                         <div className="flex items-center gap-1.5 font-medium text-slate-200">
                           <span className="truncate max-w-[110px]">{startName}</span>
                           <ArrowRight className="w-3 h-3 text-slate-500 flex-shrink-0" />
-                          <span className="text-emerald-400 font-semibold truncate max-w-[110px]">{endName}</span>
+                          {isTripActive ? (
+                            <span className="text-amber-400 font-bold truncate max-w-[120px] flex items-center gap-1">
+                              <span>In Transit</span>
+                              <span className="animate-bounce">🚴</span>
+                            </span>
+                          ) : (
+                            <span className="text-emerald-400 font-semibold truncate max-w-[110px]">{endName}</span>
+                          )}
                         </div>
                       </td>
-                      <td className="p-3 font-mono font-semibold text-slate-300">
-                        {t.durationMinutes ? `${t.durationMinutes.toFixed(1)} min` : '5.0 min'}
+                      <td className="p-3 font-mono font-semibold">
+                        <span className={isTripActive ? 'text-amber-300 font-bold' : 'text-slate-300'}>
+                          {durationDisplay}
+                        </span>
                       </td>
                       <td className="p-3">
-                        {isWithin ? (
+                        {isTripActive ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 inline-flex items-center gap-1">
+                            ⚡ Ride In Progress
+                          </span>
+                        ) : isWithin ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1">
                             ✓ Hub Verified (+{rawDelta > 0 ? rawDelta.toFixed(1) : '2.0'})
                           </span>
@@ -759,7 +888,9 @@ export default function AdminView({
                         )}
                       </td>
                       <td className="p-3 text-center">
-                        {t.photoUrl ? (
+                        {isTripActive ? (
+                          <span className="text-[10px] text-amber-400/80 font-mono italic">Pending Drop-off</span>
+                        ) : t.photoUrl ? (
                           <button
                             type="button"
                             onClick={() => setSelectedTripDetail({
@@ -769,7 +900,8 @@ export default function AdminView({
                               startHubName: startName,
                               endHubName: endName,
                               withinGeofence: isWithin,
-                              trustDelta: rawDelta
+                              trustDelta: rawDelta,
+                              isTripActive: false
                             })}
                             className="group relative inline-flex items-center justify-center w-10 h-10 rounded-xl overflow-hidden border border-emerald-500/40 hover:border-emerald-400 bg-slate-950 shadow-sm transition"
                             title="View D1 Parking Photo Proof"
@@ -788,14 +920,18 @@ export default function AdminView({
                         )}
                       </td>
                       <td className="p-3">
-                        {isArchived ? (
+                        {isTripActive ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500/25 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1">
+                            ⚡ Live Active
+                          </span>
+                        ) : isArchived ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-950/80 text-purple-300 border border-purple-500/30 inline-flex items-center gap-1">
                             <Archive className="w-2.5 h-2.5" />
                             Archived (2mo+)
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                            Active (&lt; 60d)
+                            Recent (&lt; 60d)
                           </span>
                         )}
                       </td>
@@ -809,7 +945,11 @@ export default function AdminView({
                             startHubName: startName,
                             endHubName: endName,
                             withinGeofence: isWithin,
-                            trustDelta: rawDelta
+                            trustDelta: rawDelta,
+                            isTripActive,
+                            durationMinutes: isTripActive
+                              ? Math.max(1, Math.round((Date.now() - new Date(t.startTime).getTime()) / 60000))
+                              : t.durationMinutes
                           })}
                           className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition"
                           title="View Full Ride Telemetry"
@@ -832,7 +972,7 @@ export default function AdminView({
             <div>
               Showing <strong className="text-white">{(validPage - 1) * pageSize + 1}</strong> to{' '}
               <strong className="text-white">{Math.min(validPage * pageSize, filteredTrips.length)}</strong> of{' '}
-              <strong className="text-white">{filteredTrips.length}</strong> {historyTab === 'recent' ? 'active' : 'archived'} rides
+              <strong className="text-white">{filteredTrips.length}</strong> {historyTab === 'active' ? 'active in-progress' : (historyTab === 'recent' ? 'recent' : 'archived')} rides
             </div>
 
             <div className="flex items-center gap-1 self-center sm:self-auto">
@@ -1187,7 +1327,9 @@ export default function AdminView({
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">End Station:</span>
-                <strong className="text-emerald-400">{selectedTripDetail.endHubName || 'Campus Hub'}</strong>
+                <strong className={selectedTripDetail.status === 'in_progress' ? 'text-amber-400' : 'text-emerald-400'}>
+                  {selectedTripDetail.status === 'in_progress' ? 'In Transit (Campus 🚴)' : (selectedTripDetail.endHubName || 'Campus Hub')}
+                </strong>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Start Time:</span>
@@ -1195,38 +1337,48 @@ export default function AdminView({
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">End Time:</span>
-                <span className="text-slate-300 font-mono">{formatTripDate(selectedTripDetail.endTime)}</span>
+                <span className="text-slate-300 font-mono">
+                  {selectedTripDetail.status === 'in_progress' ? (
+                    <span className="text-emerald-400 font-bold animate-pulse">● In Progress (Active Now)</span>
+                  ) : (
+                    formatTripDate(selectedTripDetail.endTime)
+                  )}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Duration:</span>
-                <strong className="text-white font-mono">{selectedTripDetail.durationMinutes ? selectedTripDetail.durationMinutes.toFixed(1) : '5.0'} minutes</strong>
+                <strong className="text-white font-mono">
+                  {selectedTripDetail.durationMinutes ? selectedTripDetail.durationMinutes.toFixed(1) : '5.0'} minutes {selectedTripDetail.status === 'in_progress' ? '(Live)' : ''}
+                </strong>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Geofence Compliance:</span>
-                <span className={selectedTripDetail.withinGeofence ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
-                  {selectedTripDetail.withinGeofence ? '✓ Inside Designated Hub Rack' : '⚠️ Outside Designated Hub Rack'}
+                <span className={selectedTripDetail.status === 'in_progress' ? 'text-amber-300 font-bold' : (selectedTripDetail.withinGeofence ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold')}>
+                  {selectedTripDetail.status === 'in_progress' ? '⚡ Live Ride in Motion' : (selectedTripDetail.withinGeofence ? '✓ Inside Designated Hub Rack' : '⚠️ Outside Designated Hub Rack')}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Photo Proof Status:</span>
-                <span className={selectedTripDetail.photoVerified ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
-                  {selectedTripDetail.photoVerified ? '✓ Rack Photo Verified' : 'No Photo Captured'}
+                <span className={selectedTripDetail.status === 'in_progress' ? 'text-amber-400 font-semibold' : (selectedTripDetail.photoVerified ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold')}>
+                  {selectedTripDetail.status === 'in_progress' ? 'Pending Drop-off (In Progress)' : (selectedTripDetail.photoVerified ? '✓ Rack Photo Verified' : 'No Photo Captured')}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Trust Score Impact:</span>
-                <strong className={selectedTripDetail.trustDelta >= 0 ? 'text-emerald-400 font-mono' : 'text-red-400 font-mono'}>
-                  {selectedTripDetail.trustDelta >= 0 ? `+${selectedTripDetail.trustDelta.toFixed(1)} pts` : `${selectedTripDetail.trustDelta.toFixed(1)} pts`}
+                <strong className={selectedTripDetail.status === 'in_progress' ? 'text-amber-300 font-mono' : (selectedTripDetail.trustDelta >= 0 ? 'text-emerald-400 font-mono' : 'text-red-400 font-mono')}>
+                  {selectedTripDetail.status === 'in_progress' ? '+2.0 pts upon designated hub parking' : (selectedTripDetail.trustDelta >= 0 ? `+${selectedTripDetail.trustDelta.toFixed(1)} pts` : `${selectedTripDetail.trustDelta.toFixed(1)} pts`)}
                 </strong>
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-white/5">
                 <span className="text-slate-400">Storage Tier:</span>
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
-                  isTripArchived(selectedTripDetail)
-                    ? 'bg-purple-950/80 text-purple-300 border-purple-500/30'
-                    : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                  selectedTripDetail.status === 'in_progress'
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : isTripArchived(selectedTripDetail)
+                      ? 'bg-purple-950/80 text-purple-300 border-purple-500/30'
+                      : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
                 }`}>
-                  {isTripArchived(selectedTripDetail) ? '📦 2-Month Cold Archive' : '⚡ Active Hot Fleet History'}
+                  {selectedTripDetail.status === 'in_progress' ? '⚡ Live In-Progress Fleet' : (isTripArchived(selectedTripDetail) ? '📦 2-Month Cold Archive' : '⚡ Active Hot Fleet History')}
                 </span>
               </div>
             </div>
@@ -1238,7 +1390,11 @@ export default function AdminView({
                   <Camera className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Rack Parking Proof (Cloudflare D1 SQL)</span>
                 </span>
-                {selectedTripDetail.photoUrl ? (
+                {selectedTripDetail.status === 'in_progress' ? (
+                  <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/30">
+                    Pending Drop-off
+                  </span>
+                ) : selectedTripDetail.photoUrl ? (
                   <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1">
                     ✓ Verified D1 Image
                   </span>
@@ -1260,6 +1416,11 @@ export default function AdminView({
                     <span className="font-medium truncate max-w-[200px]">📍 {selectedTripDetail.endHubName || 'Campus Hub'}</span>
                     <span className="font-mono text-emerald-400 font-bold text-[10px] flex-shrink-0">Cloudflare D1</span>
                   </div>
+                </div>
+              ) : selectedTripDetail.status === 'in_progress' ? (
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center text-xs text-amber-300 space-y-1">
+                  <p className="font-bold">🚴 Ride Currently in Progress</p>
+                  <p className="text-[11px] text-slate-400">Photo verification will be captured and uploaded to D1 when rider ends trip at a campus station.</p>
                 </div>
               ) : (
                 <div className="p-4 rounded-xl bg-slate-900/60 border border-dashed border-white/10 text-center text-xs text-slate-500">

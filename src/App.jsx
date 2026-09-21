@@ -202,9 +202,17 @@ export default function App() {
       startTime: new Date().toISOString(),
       startHubId: cycle.hubId || 1,
       startHubName: startHub?.name || 'Main Gate',
+      endHubId: null,
+      endHubName: 'In Transit (Campus)',
       userId: currentUser?.id || 1,
       userName: currentUser?.name || currentUser?.email?.split('@')[0] || 'Student Rider',
-      userEmail: currentUser?.email || 'student@iimbg.ac.in'
+      userEmail: currentUser?.email || 'student@iimbg.ac.in',
+      durationMinutes: 0.0,
+      photoVerified: false,
+      photoUrl: null,
+      trustDelta: 0.0,
+      withinGeofence: true,
+      status: 'in_progress'
     };
 
     setActiveTrip(newTrip);
@@ -212,6 +220,20 @@ export default function App() {
     setCycles((prev) =>
       prev.map((c) => (c.id === cycle.id ? { ...c, status: 'in_use' } : c))
     );
+
+    // Immediately persist in-progress trip and update trips list for real-time admin sync
+    api.saveTrip(newTrip)
+      .then((updatedTrips) => {
+        if (Array.isArray(updatedTrips)) {
+          setTrips(updatedTrips);
+        } else {
+          setTrips((prev) => [newTrip, ...prev.filter((t) => t.cycleCode !== newTrip.cycleCode || t.status !== 'in_progress')]);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to save in-progress trip to API:', err);
+        setTrips((prev) => [newTrip, ...prev]);
+      });
   };
 
   const handleEndTrip = (result) => {
@@ -263,7 +285,7 @@ export default function App() {
 
     const durationMinutes = Math.max(0.5, Math.round((durationSeconds / 60) * 10) / 10);
     const completedTripRecord = {
-      id: Date.now(),
+      id: activeTrip.id || Date.now(),
       userId: finalUserId,
       userName: finalUserName,
       userEmail: finalUserEmail,
@@ -288,12 +310,18 @@ export default function App() {
         if (Array.isArray(updatedTrips)) {
           setTrips(updatedTrips);
         } else {
-          setTrips((prev) => [completedTripRecord, ...prev]);
+          setTrips((prev) => [
+            completedTripRecord,
+            ...prev.filter((t) => t.cycleCode !== completedTripRecord.cycleCode || t.status !== 'in_progress')
+          ]);
         }
       })
       .catch((err) => {
         console.warn('Failed to save trip to API:', err);
-        setTrips((prev) => [completedTripRecord, ...prev]);
+        setTrips((prev) => [
+          completedTripRecord,
+          ...prev.filter((t) => t.cycleCode !== completedTripRecord.cycleCode || t.status !== 'in_progress')
+        ]);
       });
 
     // Relocate cycle to designated drop-off hub
