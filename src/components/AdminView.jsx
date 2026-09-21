@@ -97,55 +97,76 @@ export default function AdminView({
     ? activeTrips
     : (historyTab === 'recent' ? recentTrips : archivedTrips);
 
-  const filteredTrips = currentPool.filter((t) => {
-    const isTripActive = t.status === 'in_progress' || t.status === 'active' || (!t.endTime && !t.end_time);
-    const rawDelta = typeof t.trustDelta === 'number' ? t.trustDelta : (t.trust_score_delta ?? (isTripActive ? 0.0 : 2.0));
-    const isWithin =
-      t.withinGeofence === true ||
-      t.within_geofence === 1 ||
-      (t.withinGeofence === undefined && rawDelta >= 0) ||
-      rawDelta > 0;
+  const filteredTrips = useMemo(() => {
+    return currentPool
+      .filter((t) => {
+        const isTripActive = t.status === 'in_progress' || t.status === 'active' || (!t.endTime && !t.end_time);
+        const rawDelta = typeof t.trustDelta === 'number' ? t.trustDelta : (t.trust_score_delta ?? (isTripActive ? 0.0 : 2.0));
+        const isWithin =
+          t.withinGeofence === true ||
+          t.within_geofence === 1 ||
+          (t.withinGeofence === undefined && rawDelta >= 0) ||
+          rawDelta > 0;
 
-    if (!isTripActive) {
-      if (geofenceFilter === 'verified' && !isWithin) return false;
-      if (geofenceFilter === 'penalty' && isWithin) return false;
-    }
+        if (!isTripActive) {
+          if (geofenceFilter === 'verified' && !isWithin) return false;
+          if (geofenceFilter === 'penalty' && isWithin) return false;
+        }
 
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase().trim();
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase().trim();
 
-    const matchedUser = users.find(
-      (u) => String(u.id) === String(t.userId) || (u.email && u.email === t.userEmail)
-    );
-    const riderName =
-      t.userName && t.userName !== 'Campus Student'
-        ? t.userName
-        : (matchedUser?.name || 'Campus Rider');
-    const riderEmail =
-      t.userEmail && t.userEmail !== 'student@iimbg.ac.in' && t.userEmail !== ''
-        ? t.userEmail
-        : (matchedUser?.email || 'student@iimbg.ac.in');
+        const matchedUser = users.find(
+          (u) => String(u.id) === String(t.userId) || (u.email && u.email === t.userEmail)
+        );
+        const riderName =
+          t.userName && t.userName !== 'Campus Student'
+            ? t.userName
+            : (matchedUser?.name || 'Campus Rider');
+        const riderEmail =
+          t.userEmail && t.userEmail !== 'student@iimbg.ac.in' && t.userEmail !== ''
+            ? t.userEmail
+            : (matchedUser?.email || 'student@iimbg.ac.in');
 
-    const matchedStartHub = hubs.find((h) => String(h.id) === String(t.startHubId));
-    const matchedEndHub = hubs.find((h) => String(h.id) === String(t.endHubId));
-    const startName =
-      t.startHubName && t.startHubName !== 'Campus Hub'
-        ? t.startHubName
-        : (matchedStartHub?.name || 'Main Gate');
-    const endName = isTripActive
-      ? 'In Transit (Campus)'
-      : (t.endHubName && t.endHubName !== 'Campus Hub'
-          ? t.endHubName
-          : (matchedEndHub?.name || 'Academic Block'));
+        const matchedStartHub = hubs.find((h) => String(h.id) === String(t.startHubId));
+        const matchedEndHub = hubs.find((h) => String(h.id) === String(t.endHubId));
+        const startName =
+          t.startHubName && t.startHubName !== 'Campus Hub'
+            ? t.startHubName
+            : (matchedStartHub?.name || 'Main Gate');
+        const endName = isTripActive
+          ? 'In Transit (Campus)'
+          : (t.endHubName && t.endHubName !== 'Campus Hub'
+              ? t.endHubName
+              : (matchedEndHub?.name || 'Academic Block'));
 
-    return (
-      riderName.toLowerCase().includes(q) ||
-      riderEmail.toLowerCase().includes(q) ||
-      (t.cycleCode && t.cycleCode.toLowerCase().includes(q)) ||
-      startName.toLowerCase().includes(q) ||
-      endName.toLowerCase().includes(q)
-    );
-  });
+        return (
+          riderName.toLowerCase().includes(q) ||
+          riderEmail.toLowerCase().includes(q) ||
+          (t.cycleCode && t.cycleCode.toLowerCase().includes(q)) ||
+          startName.toLowerCase().includes(q) ||
+          endName.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const isAActive = a.status === 'in_progress' || a.status === 'active' || (!a.endTime && !a.end_time);
+        const isBActive = b.status === 'in_progress' || b.status === 'active' || (!b.endTime && !b.end_time);
+
+        // Active in-progress rides stay on top
+        if (isAActive && !isBActive) return -1;
+        if (!isAActive && isBActive) return 1;
+
+        // If both are active, newest start time first
+        if (isAActive && isBActive) {
+          return new Date(b.startTime || b.start_time || 0).getTime() - new Date(a.startTime || a.start_time || 0).getTime();
+        }
+
+        // Decreasing end time for completed rides
+        const endA = new Date(a.endTime || a.end_time || a.startTime || a.start_time || 0).getTime();
+        const endB = new Date(b.endTime || b.end_time || b.startTime || b.start_time || 0).getTime();
+        return endB - endA;
+      });
+  }, [currentPool, geofenceFilter, searchQuery, users, hubs]);
 
   const totalPages = Math.max(1, Math.ceil(filteredTrips.length / pageSize));
   const validPage = Math.min(Math.max(1, currentPage), totalPages);
@@ -780,7 +801,7 @@ export default function AdminView({
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] font-bold">
               <tr>
-                <th className="p-3 rounded-l-xl">Ride Time</th>
+                <th className="p-3 rounded-l-xl">Ride Time (End Time ↓)</th>
                 <th className="p-3">Rider</th>
                 <th className="p-3">Cycle</th>
                 <th className="p-3">Route (Start ➔ End)</th>
@@ -812,7 +833,7 @@ export default function AdminView({
                 paginatedTrips.map((t) => {
                   const isTripActive = t.status === 'in_progress' || t.status === 'active' || (!t.endTime && !t.end_time);
                   const isArchived = !isTripActive && isTripArchived(t);
-                  const timeAgo = formatTimeAgo(t.startTime);
+                  const timeAgo = formatTimeAgo(t.endTime || t.end_time || t.startTime || t.start_time);
 
                   // Defensive resolution for legacy or raw rows
                   const matchedUser = users.find(
@@ -859,18 +880,29 @@ export default function AdminView({
                   return (
                     <tr key={t.id} className={`hover:bg-slate-800/40 transition ${isTripActive ? 'bg-amber-500/5' : ''}`}>
                       <td className="p-3">
-                        <div className="font-semibold text-white">{formatTripDate(t.startTime)}</div>
+                        <div className="font-semibold text-white">
+                          {isTripActive
+                            ? formatTripDate(t.startTime || t.start_time)
+                            : formatTripDate(t.endTime || t.end_time || t.startTime || t.start_time)}
+                        </div>
                         {isTripActive ? (
                           <span className="px-2 py-0.5 mt-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1 animate-pulse">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                             Live In Motion
                           </span>
                         ) : (
-                          timeAgo && (
-                            <span className={`text-[10px] font-mono ${isArchived ? 'text-purple-400' : 'text-slate-400'}`}>
-                              {timeAgo} {isArchived ? '• 2mo+ Old' : ''}
-                            </span>
-                          )
+                          <div className="flex flex-col">
+                            {timeAgo && (
+                              <span className={`text-[10px] font-mono ${isArchived ? 'text-purple-400' : 'text-slate-400'}`}>
+                                Ended {timeAgo} {isArchived ? '• 2mo+ Old' : ''}
+                              </span>
+                            )}
+                            {(t.startTime || t.start_time) && (t.endTime || t.end_time) && (
+                              <span className="text-[9px] text-slate-500 font-mono">
+                                Started: {formatTripDate(t.startTime || t.start_time)}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="p-3">

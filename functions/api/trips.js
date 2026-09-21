@@ -275,7 +275,21 @@ function getSeedTrips() {
       within_geofence: 1,
       status: 'archived'
     }
-  ];
+  ].sort((a, b) => {
+    const isAActive = a.status === 'in_progress' || a.status === 'active' || (!a.end_time && !a.endTime);
+    const isBActive = b.status === 'in_progress' || b.status === 'active' || (!b.end_time && !b.endTime);
+
+    if (isAActive && !isBActive) return -1;
+    if (!isAActive && isBActive) return 1;
+
+    if (isAActive && isBActive) {
+      return new Date(b.start_time || b.startTime || 0).getTime() - new Date(a.start_time || a.startTime || 0).getTime();
+    }
+
+    const endA = new Date(a.end_time || a.endTime || a.start_time || a.startTime || 0).getTime();
+    const endB = new Date(b.end_time || b.endTime || b.start_time || b.startTime || 0).getTime();
+    return endB - endA;
+  });
 }
 
 export async function onRequestGet(context) {
@@ -328,7 +342,9 @@ export async function onRequestGet(context) {
         LEFT JOIN users u ON t.user_id = u.id
         LEFT JOIN hubs sh ON t.start_hub_id = sh.id
         LEFT JOIN hubs eh ON t.end_hub_id = eh.id
-        ORDER BY t.start_time DESC
+        ORDER BY 
+          CASE WHEN t.status = 'in_progress' OR t.status = 'active' OR t.end_time IS NULL THEN 1 ELSE 2 END,
+          COALESCE(t.end_time, t.start_time) DESC
       `).all();
 
       if (results && results.length > 0) {
@@ -339,7 +355,12 @@ export async function onRequestGet(context) {
     } catch (err) {
       console.error('[D1 Trips GET Error]', err);
       try {
-        const { results } = await env.DB.prepare('SELECT * FROM trips ORDER BY start_time DESC').all();
+        const { results } = await env.DB.prepare(`
+          SELECT * FROM trips 
+          ORDER BY 
+            CASE WHEN status = 'in_progress' OR status = 'active' OR end_time IS NULL THEN 1 ELSE 2 END,
+            COALESCE(end_time, start_time) DESC
+        `).all();
         if (results && results.length > 0) {
           return new Response(JSON.stringify(results), {
             headers: { 'Content-Type': 'application/json' }

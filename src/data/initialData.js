@@ -324,5 +324,20 @@ export const generateInitialTrips = () => {
       withinGeofence: true,
       status: 'archived'
     }
-  ];
+  ].sort((a, b) => {
+    const isAActive = a.status === 'in_progress' || a.status === 'active' || (!a.endTime && !a.end_time);
+    const isBActive = b.status === 'in_progress' || b.status === 'active' || (!b.endTime && !b.end_time);
+
+    if (isAActive && !isBActive) return -1;
+    if (!isAActive && isBActive) return 1;
+
+    if (isAActive && isBActive) {
+      return new Date(b.startTime || b.start_time || 0).getTime() - new Date(a.startTime || a.start_time || 0).getTime();
+    }
+
+    const endA = new Date(a.endTime || a.end_time || a.startTime || a.start_time || 0).getTime();
+    const endB = new Date(b.endTime || b.end_time || b.startTime || b.start_time || 0).getTime();
+    return endB - endA;
+  });
 };
+

@@ -310,6 +310,23 @@ export const api = {
     const localOnly = localCache.filter((l) => !remoteIds.has(String(l.id)));
     const combined = [...localOnly, ...normalized];
 
+    // Sort decreasing by end time, keeping active in-progress trips at the top
+    combined.sort((a, b) => {
+      const isAActive = a.status === 'in_progress' || a.status === 'active' || (!a.endTime && !a.end_time);
+      const isBActive = b.status === 'in_progress' || b.status === 'active' || (!b.endTime && !b.end_time);
+
+      if (isAActive && !isBActive) return -1;
+      if (!isAActive && isBActive) return 1;
+
+      if (isAActive && isBActive) {
+        return new Date(b.startTime || b.start_time || 0).getTime() - new Date(a.startTime || a.start_time || 0).getTime();
+      }
+
+      const endA = new Date(a.endTime || a.end_time || a.startTime || a.start_time || 0).getTime();
+      const endB = new Date(b.endTime || b.end_time || b.startTime || b.start_time || 0).getTime();
+      return endB - endA;
+    });
+
     localStorage.setItem('campus_trips_cache', JSON.stringify(combined));
     return combined;
   },
@@ -375,6 +392,22 @@ export const api = {
     });
 
     const updated = [normalizedNew, ...filtered];
+    updated.sort((a, b) => {
+      const isAActive = a.status === 'in_progress' || a.status === 'active' || (!a.endTime && !a.end_time);
+      const isBActive = b.status === 'in_progress' || b.status === 'active' || (!b.endTime && !b.end_time);
+
+      if (isAActive && !isBActive) return -1;
+      if (!isAActive && isBActive) return 1;
+
+      if (isAActive && isBActive) {
+        return new Date(b.startTime || b.start_time || 0).getTime() - new Date(a.startTime || a.start_time || 0).getTime();
+      }
+
+      const endA = new Date(a.endTime || a.end_time || a.startTime || a.start_time || 0).getTime();
+      const endB = new Date(b.endTime || b.end_time || b.startTime || b.start_time || 0).getTime();
+      return endB - endA;
+    });
+
     localStorage.setItem('campus_trips_cache', JSON.stringify(updated));
     return updated;
   }
