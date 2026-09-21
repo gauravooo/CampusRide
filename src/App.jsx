@@ -90,6 +90,13 @@ export default function App() {
     }
   }, []);
 
+  // Whenever currentUser is authenticated, guarantee the auth modal is closed
+  useEffect(() => {
+    if (currentUser) {
+      setShowAuthModal(false);
+    }
+  }, [currentUser]);
+
   // Load persistent data from Cloudflare D1 SQL / API
   useEffect(() => {
     async function loadData() {
@@ -373,16 +380,36 @@ export default function App() {
   };
 
   const handleLogin = async (userData) => {
-    const saved = await api.loginUser(userData.email, userData.name, userData.picture);
-    const enriched = {
-      ...saved,
-      isDemo: Boolean(userData.isDemo)
-    };
-    setCurrentUser(enriched);
-    setUsers((prev) => {
-      const exists = prev.some((u) => u.email === enriched.email);
-      return exists ? prev.map((u) => (u.email === enriched.email ? enriched : u)) : [...prev, enriched];
-    });
+    // 1. Immediately dismiss login popup
+    setShowAuthModal(false);
+
+    // 2. Immediately set user state & persist to localStorage so session is never lost
+    setCurrentUser(userData);
+    localStorage.setItem('campus_user', JSON.stringify(userData));
+
+    try {
+      // 3. Sync with backend Cloudflare D1 SQL database
+      const saved = await api.loginUser(userData.email, userData.name, userData.picture);
+      const enriched = {
+        ...userData,
+        ...saved,
+        isDemo: Boolean(userData.isDemo)
+      };
+      setCurrentUser(enriched);
+      localStorage.setItem('campus_user', JSON.stringify(enriched));
+
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.email === enriched.email);
+        return exists ? prev.map((u) => (u.email === enriched.email ? enriched : u)) : [...prev, enriched];
+      });
+
+      if (enriched.role === 'admin') {
+        localStorage.setItem('admin_unlocked', 'true');
+        navigate('/admin');
+      }
+    } catch (err) {
+      console.warn('[Login] Backend sync failed, proceeding with authenticated session:', err);
+    }
   };
 
   const handleAdminLogin = () => {

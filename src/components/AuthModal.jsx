@@ -51,6 +51,7 @@ export default function AuthModal({ isOpen, onClose, onLogin, onAdminLogin }) {
       }
 
       const role = userEmail.startsWith('admin@') ? 'admin' : 'student';
+      if (onClose) onClose();
       onLogin({
         id: Date.now(),
         email: userEmail,
@@ -60,7 +61,6 @@ export default function AuthModal({ isOpen, onClose, onLogin, onAdminLogin }) {
         trustScore: 100.0,
         isDemo: false
       });
-      if (onClose) onClose();
     } catch (e) {
       setError('Failed to process authentication response.');
     }
